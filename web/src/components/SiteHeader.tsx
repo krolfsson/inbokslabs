@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 const links = [
-  { href: "/preview", label: "Inbox lab" },
-  { href: "/#mockup", label: "Email → mockup" },
+  { href: "/preview", label: "Förhandsvisa" },
+  { href: "/#mockup", label: "E-post → mockup" },
 ];
 
 export function SiteHeader() {

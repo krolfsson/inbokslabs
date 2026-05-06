@@ -17,22 +17,28 @@ export async function GET(request: Request) {
   const raw = searchParams.get("url");
 
   if (!raw) {
-    return NextResponse.json({ error: "Missing url" }, { status: 400 });
+    return NextResponse.json({ error: "Saknar URL-parameter url" }, { status: 400 });
   }
 
   let target: URL;
   try {
     target = new URL(raw);
   } catch {
-    return NextResponse.json({ error: "Invalid url" }, { status: 400 });
+    return NextResponse.json({ error: "Ogiltig URL" }, { status: 400 });
   }
 
   if (!["http:", "https:"].includes(target.protocol)) {
-    return NextResponse.json({ error: "Unsupported protocol" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Protokoll stöds inte (krävs http eller https)" },
+      { status: 400 },
+    );
   }
 
   if (isPrivateHost(target.hostname)) {
-    return NextResponse.json({ error: "Unsupported host" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Den här värdtypen är inte tillåten" },
+      { status: 400 },
+    );
   }
 
   const upstream = await fetch(target, {
@@ -46,14 +52,14 @@ export async function GET(request: Request) {
 
   if (!upstream.ok || !upstream.body) {
     return NextResponse.json(
-      { error: "Image fetch failed" },
+      { error: "Kunde inte hämta bilden" },
       { status: upstream.status || 502 },
     );
   }
 
   const contentType = upstream.headers.get("content-type") || "image/png";
   if (!contentType.toLowerCase().startsWith("image/")) {
-    return NextResponse.json({ error: "Not an image" }, { status: 415 });
+    return NextResponse.json({ error: "Svaret är inte en bild" }, { status: 415 });
   }
 
   return new NextResponse(upstream.body, {

@@ -27,7 +27,7 @@ export type TextSizePreset =
   | "xxLarge"
   | "xxxLarge";
 
-/** Labels shown in the UI (Apple names + Android scale hint). */
+/** Etiketter i gränssnittet (iOS Dynamisk textstorlek · Android-teckenskala). */
 export const TEXT_SIZE_OPTIONS: {
   value: TextSizePreset;
   label: string;
@@ -35,38 +35,38 @@ export const TEXT_SIZE_OPTIONS: {
 }[] = [
   {
     value: "xSmall",
-    label: "Extra Small",
-    description: "iOS XS category · Android font scale ~0.85×",
+    label: "Extra liten",
+    description: "iOS XS-kategori · Android-teckenskala ~0,85×",
   },
   {
     value: "small",
-    label: "Small",
-    description: "iOS S · ~0.88×",
+    label: "Liten",
+    description: "iOS S · ~0,88×",
   },
   {
     value: "medium",
-    label: "Medium",
-    description: "iOS M · ~0.94×",
+    label: "Mellan",
+    description: "iOS M · ~0,94×",
   },
   {
     value: "large",
-    label: "Default",
-    description: "iOS Large (system default) · Android 1.0×",
+    label: "Standard",
+    description: "iOS Large (systemstandard) · Android 1,0×",
   },
   {
     value: "xLarge",
-    label: "Large",
-    description: "iOS XL · Android ~1.15×",
+    label: "Stor",
+    description: "iOS XL · Android ~1,15×",
   },
   {
     value: "xxLarge",
-    label: "Extra Large",
-    description: "iOS XXL · Android ~1.3×",
+    label: "Extra stor",
+    description: "iOS XXL · Android ~1,3×",
   },
   {
     value: "xxxLarge",
-    label: "XXXL / Accessibility",
-    description: "iOS XXXL · Android ~1.45×",
+    label: "3XL · tillgänglighet",
+    description: "iOS XXXL · Android ~1,45×",
   },
 ];
 
@@ -137,7 +137,8 @@ export const LAYOUT = {
   gmailTextColumnPx: GMAIL_W - GMAIL_PAD * 2 - GMAIL_AV - GMAIL_GAP,
 } as const;
 
-const PRESET_ORDER: TextSizePreset[] = [
+/** Ordered presets for the text-size control (7 discrete stops). */
+export const TEXT_SIZE_PRESET_ORDER: TextSizePreset[] = [
   "xSmall",
   "small",
   "medium",
@@ -147,8 +148,47 @@ const PRESET_ORDER: TextSizePreset[] = [
   "xxxLarge",
 ];
 
+/** Last step index (0-based). */
+export const TEXT_SIZE_STEP_MAX = TEXT_SIZE_PRESET_ORDER.length - 1;
+
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+/** Short labels for ticks under the slider (7 stops; last = xxxLarge). */
+export const TEXT_SIZE_STEP_SHORT: readonly string[] = [
+  "XS",
+  "S",
+  "M",
+  "Std",
+  "L",
+  "XL",
+  "3XL",
+];
+
+/**
+ * Multipliers at a discrete step `0 … TEXT_SIZE_STEP_MAX` (one preset per step, no blending).
+ */
+export function scalesAtStep(step: number): { ios: number; android: number } {
+  const i = Math.min(
+    TEXT_SIZE_STEP_MAX,
+    Math.max(0, Math.round(step)),
+  );
+  const p = TEXT_SIZE_PRESET_ORDER[i];
+  return {
+    ios: IOS_DT_MULTIPLIER[p],
+    android: ANDROID_FONT_SCALE[p],
+  };
+}
+
+export function labelAtStep(step: number): string {
+  const i = Math.min(
+    TEXT_SIZE_STEP_MAX,
+    Math.max(0, Math.round(step)),
+  );
+  const preset = TEXT_SIZE_PRESET_ORDER[i];
+  const row = TEXT_SIZE_OPTIONS.find((o) => o.value === preset);
+  return row?.label ?? "Standard";
 }
 
 /**
@@ -160,26 +200,17 @@ export function scalesFromSlider(value0to100: number): {
   android: number;
 } {
   const v = Math.min(100, Math.max(0, value0to100));
-  const segments = PRESET_ORDER.length - 1;
+  const segments = TEXT_SIZE_PRESET_ORDER.length - 1;
   const x = (v / 100) * segments;
   const lo = Math.min(segments, Math.floor(x));
   const hi = Math.min(segments, Math.ceil(x));
   const t = hi === lo ? 0 : x - lo;
-  const pLo = PRESET_ORDER[lo];
-  const pHi = PRESET_ORDER[hi];
+  const pLo = TEXT_SIZE_PRESET_ORDER[lo];
+  const pHi = TEXT_SIZE_PRESET_ORDER[hi];
   return {
     ios: lerp(IOS_DT_MULTIPLIER[pLo], IOS_DT_MULTIPLIER[pHi], t),
     android: lerp(ANDROID_FONT_SCALE[pLo], ANDROID_FONT_SCALE[pHi], t),
   };
-}
-
-/** Maps 0–100 to nearest preset name for screen readers / help text. */
-export function nearestPresetLabel(value0to100: number): string {
-  const v = Math.min(100, Math.max(0, value0to100));
-  const idx = Math.round((v / 100) * (PRESET_ORDER.length - 1));
-  const preset = PRESET_ORDER[idx];
-  const row = TEXT_SIZE_OPTIONS.find((o) => o.value === preset);
-  return row?.label ?? "Default";
 }
 
 export function iosTypeScale(preset: TextSizePreset): number {

@@ -21,7 +21,7 @@ export function TextSizeControl({ value, onChange }: Props) {
     <div className="space-y-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-zinc-500">
-          Text size
+          Teckenstorlek
         </span>
         <span className="text-xs tabular-nums text-zinc-500">
           {sizeLabel}
@@ -34,7 +34,7 @@ export function TextSizeControl({ value, onChange }: Props) {
         aria-valuemax={6}
         aria-valuenow={value}
         aria-valuetext={sizeLabel}
-        aria-label="Text size, seven steps"
+        aria-label="Teckenstorlek, sju steg"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "ArrowLeft" || e.key === "ArrowDown") {

@@ -10,11 +10,11 @@ export default function Home() {
               Lithmuth
             </p>
             <h1 className="mt-5 max-w-3xl text-5xl font-semibold tracking-[-0.055em] text-zinc-950 sm:text-6xl lg:text-7xl">
-              See the email before it lands.
+              Se mailet innan det landar.
             </h1>
           </div>
           <p className="hidden max-w-xs pb-2 text-right text-sm leading-6 text-zinc-500 md:block">
-            Paste copy or HTML. Preview instantly. Export when it looks right.
+            Klistra in text eller HTML. Förhandsvisa direkt. Exportera när det känns rätt.
           </p>
         </header>
 

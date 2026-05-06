@@ -13,19 +13,19 @@ const field =
 type TabId = "inbox" | "email";
 
 const tabs: { id: TabId; label: string }[] = [
-  { id: "inbox", label: "Inbox" },
-  { id: "email", label: "Email" },
+  { id: "inbox", label: "Inkorg" },
+  { id: "email", label: "E-post" },
 ];
 
 export function PreviewWorkbench() {
   const [tab, setTab] = useState<TabId>("inbox");
 
-  const [sender, setSender] = useState("Lithmuth");
+  const [sender, setSender] = useState("SvD Ekonomi");
   const [subject, setSubject] = useState(
-    "Your week in focus — quieter inboxes, bolder ideas",
+    "Boränteprognosen: Riksbanken avvaktar",
   );
   const [preheader, setPreheader] = useState(
-    "Plus: one habit teams use before hitting send on big campaigns.",
+    "Omvärldens osäkerhet fortsätter prägla marknaden även om konflikten hittills haft begränsad effekt på inflationen.",
   );
   const [textStep, setTextStep] = useState(3);
 
@@ -54,7 +54,7 @@ export function PreviewWorkbench() {
         </div>
         <div
           role="tablist"
-          aria-label="Preview mode"
+          aria-label="Läge: inkorg eller e-post"
           className="mx-auto grid w-full max-w-xs grid-cols-2 rounded-full bg-zinc-100 p-1"
         >
           {tabs.map((item) => {
@@ -92,29 +92,29 @@ export function PreviewWorkbench() {
             <div className="rounded-[30px] bg-zinc-50/90 p-5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
               <div className="mb-6">
                 <h2 className="text-2xl font-semibold tracking-[-0.035em] text-zinc-950">
-                  Inbox preview
+                  Inkorgsförhandsvisning
                 </h2>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Write the line. See the inbox.
+                  Skriv raden. Se hur den ter sig i inkorgen.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <label className="block space-y-2">
                   <span className="text-xs font-medium text-zinc-500">
-                    From
+                    Avsändare
                   </span>
                   <input
                     value={sender}
                     onChange={(e) => setSender(e.target.value)}
                     className={field}
-                    placeholder="Brand name"
+                    placeholder="Visningsnamn"
                   />
                 </label>
 
                 <label className="block space-y-2">
                   <span className="flex items-center justify-between text-xs font-medium text-zinc-500">
-                    Subject
+                    Ämnesrad
                     <span className="font-mono text-[11px] font-normal text-zinc-400">
                       {counts.subject}
                     </span>
@@ -128,7 +128,7 @@ export function PreviewWorkbench() {
 
                 <label className="block space-y-2">
                   <span className="flex items-center justify-between text-xs font-medium text-zinc-500">
-                    Preheader
+                    Ingress (preheader)
                     <span className="font-mono text-[11px] font-normal text-zinc-400">
                       {counts.preheader}
                     </span>

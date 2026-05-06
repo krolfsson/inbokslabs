@@ -230,10 +230,10 @@ const EMAIL_PREVIEW_OVERRIDE_CSS = `
 `.trim();
 
 const SAMPLE_HTML = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <tr><td style="padding:24px 20px 12px;font-size:22px;font-weight:600;color:#111">Weekly digest</td></tr>
-  <tr><td style="padding:0 20px 16px;font-size:15px;line-height:1.45;color:#444">Hi there — here is how your campaign could look at full width inside Mail. Tables and inline CSS work best.</td></tr>
-  <tr><td style="padding:0 20px 24px;"><a href="#" style="display:inline-block;background:#ff5c47;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:999px;font-size:15px;">Open dashboard</a></td></tr>
-  <tr><td style="padding:16px 20px;border-top:1px solid #eee;font-size:12px;color:#888">You are receiving this because you asked for a preview.</td></tr>
+  <tr><td style="padding:24px 20px 12px;font-size:22px;font-weight:600;color:#111">Nyhetsbrev som exempel</td></tr>
+  <tr><td style="padding:0 20px 16px;font-size:15px;line-height:1.45;color:#444">Så här kan kampanjen se ut vid full bredd i mailklienten. Tabeller och inline‑CSS ger bäst resultat.</td></tr>
+  <tr><td style="padding:0 20px 24px;"><a href="#" style="display:inline-block;background:#ff5c47;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:999px;font-size:15px;">Öppna arbetsytan</a></td></tr>
+  <tr><td style="padding:16px 20px;border-top:1px solid #eee;font-size:12px;color:#888">Du ser detta för att du förhandsvisar ett utskick.</td></tr>
 </table>`;
 
 type PreviewPayload = {
@@ -604,10 +604,11 @@ export function EmailHtmlDevicePreview({
 
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = `lithmuth-email-${Date.now()}.png`;
+      a.download = `lithmuth-epost-${Date.now()}.png`;
       a.click();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Export failed.";
+      const msg =
+        e instanceof Error ? e.message : "PNG-export misslyckades.";
       setExportError(msg);
     } finally {
       exportHost?.remove();
@@ -644,37 +645,37 @@ export function EmailHtmlDevicePreview({
         <div className="rounded-[30px] bg-zinc-50/90 p-5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
           <div className="mb-6">
             <h2 className="text-2xl font-semibold tracking-[-0.035em] text-zinc-950">
-              Email preview
+              E-postförhandsvisning
             </h2>
             <p className="mt-1 text-sm text-zinc-500">
-              Paste HTML or a raw email.
+              Klistra in HTML eller ett rått e-postmeddelande (t.ex. .eml-källa).
             </p>
           </div>
 
           <div className="space-y-4">
             <label className="block space-y-2">
               <span className="text-xs font-medium text-zinc-500">
-                Email
+                E-post
               </span>
               <textarea
                 value={rawHtml}
                 onChange={(e) => setRawHtml(e.target.value)}
                 spellCheck={false}
                 className="textarea-email-html h-[min(430px,54vh)] w-full resize-none rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]"
-                placeholder="Paste HTML or .eml source"
+                placeholder="Klistra in HTML eller källtext från .eml…"
               />
             </label>
 
             <label className="block space-y-2">
               <span className="text-xs font-medium text-zinc-500">
-                Image base URL
+                Bas-URL för bilder
               </span>
               <input
                 type="url"
                 value={assetBaseUrl}
                 onChange={(e) => setAssetBaseUrl(e.target.value)}
                 className="w-full rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 text-[15px] text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]"
-                placeholder="Optional"
+                placeholder="Valfritt (t.ex. CDN)"
               />
             </label>
 
@@ -686,7 +687,7 @@ export function EmailHtmlDevicePreview({
                   className="sr-only"
                   onChange={onFile}
                 />
-                Upload
+                Ladda upp
               </label>
               <button
                 type="button"
@@ -694,7 +695,7 @@ export function EmailHtmlDevicePreview({
                 onClick={savePng}
                 className="inline-flex h-11 items-center justify-center rounded-full bg-zinc-950 px-5 text-sm font-semibold text-white shadow-[0_1px_10px_rgba(0,0,0,0.16)] transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {exporting ? "Saving…" : "Save PNG"}
+                {exporting ? "Sparar…" : "Spara PNG"}
               </button>
             </div>
             {exportError ? (
@@ -708,11 +709,11 @@ export function EmailHtmlDevicePreview({
         <div className="min-w-0 rounded-[30px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] sm:p-6">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <span className="text-sm font-semibold tracking-tight text-zinc-900">
-              Preview
+              Förhandsvisning
             </span>
             <div className="flex flex-wrap items-center gap-2">
               <label className="flex items-center gap-2 text-xs text-zinc-500">
-                <span className="font-medium">Width</span>
+                <span className="font-medium">Bredd</span>
                 <input
                   type="number"
                   inputMode="numeric"

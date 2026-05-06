@@ -4,27 +4,27 @@ import "./globals.css";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext"],
   weight: ["400", "500", "600", "700"],
 });
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext"],
   weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "Lithmuth — Email mockups & inbox previews",
+    default: "Lithmuth — Förhandsvisning av inkorg och e-post",
     template: "%s — Lithmuth",
   },
   description:
-    "Ship inbox-safe copy and pixel-aware HTML. Preview subject lines on iPhone and Android, or mail your campaign and get an iPhone-framed PNG back.",
+    "Skriv säkra rubriker och förhandsvisa HTML och inkorgsrader. Se hur ämnesrad och ingress ser ut på iPhone och Android, eller exportera kampanjen som PNG.",
   openGraph: {
     title: "Lithmuth",
     description:
-      "Preview inbox lines and render emails into iPhone mockups without screenshots.",
+      "Förhandsvisa inkorgsrader och hela nyhetsbrev utan krångliga skärmdumpar.",
   },
 };
 
@@ -35,7 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="sv"
       className={`${dmSans.variable} ${fraunces.variable} h-full scroll-smooth antialiased`}
     >
       <body className="flex min-h-full flex-col bg-[#f5f5f7] text-zinc-950">

@@ -231,7 +231,7 @@ function AppleMailMock({
             ),
           }}
         >
-          Inbox
+          Inkorg
         </span>
       </div>
       <div className="py-2 pr-4" style={{ paddingLeft: padding }}>
@@ -263,7 +263,7 @@ function AppleMailMock({
                   letterSpacing: "-0.2px",
                 }}
               >
-                {sender || "Sender"}
+                {sender || "Avsändare"}
               </span>
               <span
                 className={`shrink-0 ${dark ? "text-zinc-500" : "text-zinc-500"}`}
@@ -357,7 +357,7 @@ function GmailMock({
             fontWeight: 500,
           }}
         >
-          Primary
+          Primär
         </span>
       </div>
       <div
@@ -392,7 +392,7 @@ function GmailMock({
                 letterSpacing: "0.00625em",
               }}
             >
-              {sender || "Sender"}
+              {sender || "Avsändare"}
             </span>
             <span
               className={`shrink-0 ${dark ? "text-[#9aa0a6]" : "text-[#5f6368]"}`}
