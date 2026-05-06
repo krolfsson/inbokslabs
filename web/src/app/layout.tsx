@@ -1,18 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DM_Sans, Happy_Monkey } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const happyMonkey = Happy_Monkey({
-  variable: "--font-happy-monkey",
-  subsets: ["latin", "latin-ext"],
-  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -37,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="sv"
-      className={`${dmSans.variable} ${happyMonkey.variable} h-full scroll-smooth antialiased`}
+      className={`${inter.variable} h-full scroll-smooth antialiased`}
     >
       <body className="flex min-h-full flex-col bg-brand-surface text-zinc-900">
         <div className="flex flex-1 flex-col">{children}</div>
