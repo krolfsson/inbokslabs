@@ -13,3 +13,17 @@ body {
   background: rgba(255, 92, 71, 0.25);
   color: #18181b;
 }
+
+/* Pasted email HTML preview (narrow column, client-only iframe substitute) */
+.email-preview-root {
+  -webkit-text-size-adjust: 100%;
+}
+
+.email-preview-root img {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+.email-preview-root table {
+  border-collapse: collapse;
+}
