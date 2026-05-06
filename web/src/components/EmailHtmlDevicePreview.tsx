@@ -95,27 +95,17 @@ function inlineStyleToObject(css: string | undefined): CSSProperties | undefined
 }
 
 /** No Tailwind on capture subtree — TW4 uses oklch/lab; DOM export stays isolated from app CSS. */
-const FRAME_OUTER: CSSProperties = {
-  display: "inline-block",
-  borderRadius: 28,
-  backgroundColor: "#ffffff",
-  boxShadow: "0 22px 58px -18px rgba(0,0,0,0.25)",
-  overflow: "hidden",
-};
-
-const FRAME_SCREEN: CSSProperties = {
-  borderRadius: 28,
-  overflow: "hidden",
-  backgroundColor: "#ffffff",
-};
-
 const FRAME_SCROLL_BASE: CSSProperties = {
   overflow: "visible",
   overflowWrap: "anywhere",
   minWidth: 0,
   minHeight: 420,
-  backgroundColor: "#ffffff",
   boxSizing: "border-box",
+};
+
+const EXPORT_BG: Record<"light" | "dark", string> = {
+  light: "#ffffff",
+  dark: "#27272a",
 };
 
 /**
@@ -431,6 +421,8 @@ export function EmailHtmlDevicePreview({
   /** Folder or origin where relative <img src> paths resolve (e.g. https://cdn.example.com/campaign/). */
   const [assetBaseUrl, setAssetBaseUrl] = useState("");
   const [previewWidth, setPreviewWidth] = useState(DEFAULT_PREVIEW_WIDTH);
+  /** Email artboard surrounds HTML (campaign body often stays light). */
+  const [surfaceTheme, setSurfaceTheme] = useState<"light" | "dark">("light");
   /** Draft so multi-digit widths (e.g. 700) can be typed without per-keystroke clamping. */
   const [previewWidthDraft, setPreviewWidthDraft] = useState(
     String(DEFAULT_PREVIEW_WIDTH),
@@ -478,12 +470,35 @@ export function EmailHtmlDevicePreview({
 
   const hasContent = (preview?.bodyHtml.length ?? 0) > 0;
 
+  const frameOuterStyle = useMemo((): CSSProperties => {
+    const dark = surfaceTheme === "dark";
+    return {
+      display: "inline-block",
+      borderRadius: 28,
+      backgroundColor: dark ? "#27272a" : "#ffffff",
+      boxShadow: dark
+        ? "0 22px 58px -18px rgba(0,0,0,0.55)"
+        : "0 22px 58px -18px rgba(0,0,0,0.25)",
+      overflow: "hidden",
+    };
+  }, [surfaceTheme]);
+
+  const frameScreenStyle = useMemo((): CSSProperties => {
+    const dark = surfaceTheme === "dark";
+    return {
+      borderRadius: 28,
+      overflow: "hidden",
+      backgroundColor: dark ? "#18181b" : "#ffffff",
+    };
+  }, [surfaceTheme]);
+
   const frameScrollStyle = useMemo(
-    () => ({
+    (): CSSProperties => ({
       ...FRAME_SCROLL_BASE,
       width: previewWidth,
+      backgroundColor: surfaceTheme === "dark" ? "#0c0c0e" : "#ffffff",
     }),
-    [previewWidth],
+    [previewWidth, surfaceTheme],
   );
 
   const clampPreviewWidth = (value: number) =>
@@ -595,7 +610,7 @@ export function EmailHtmlDevicePreview({
         pixelRatio: EXPORT_SCALE,
         width: exportWidth,
         height: exportHeight,
-        backgroundColor: "#ffffff",
+        backgroundColor: EXPORT_BG[surfaceTheme],
         style: {
           margin: "0",
           transform: "none",
@@ -613,7 +628,7 @@ export function EmailHtmlDevicePreview({
       exportHost?.remove();
       setExporting(false);
     }
-  }, [hasContent]);
+  }, [hasContent, surfaceTheme]);
 
   const commitPreviewWidth = () => {
     const n = Number.parseInt(previewWidthDraft.trim(), 10);
@@ -705,13 +720,69 @@ export function EmailHtmlDevicePreview({
           </div>
         </div>
 
-        <div className="min-w-0 rounded-[30px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] sm:p-6">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm font-semibold tracking-tight text-zinc-900">
+        <div
+          className={
+            surfaceTheme === "dark"
+              ? "min-w-0 rounded-[30px] border border-zinc-800 bg-zinc-900 p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] sm:p-6"
+              : "min-w-0 rounded-[30px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] sm:p-6"
+          }
+        >
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <span
+              className={
+                surfaceTheme === "dark"
+                  ? "text-sm font-semibold tracking-tight text-zinc-100"
+                  : "text-sm font-semibold tracking-tight text-zinc-900"
+              }
+            >
               Preview
             </span>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 text-xs text-zinc-500">
+
+            <div
+              role="radiogroup"
+              aria-label="Förhandsgranskning ljus eller mörk bakgrund"
+              className={`flex rounded-full p-0.5 ${
+                surfaceTheme === "dark" ? "bg-zinc-800" : "bg-zinc-100"
+              }`}
+            >
+              {(
+                [
+                  ["light", "Ljus"],
+                  ["dark", "Mörk"],
+                ] as const
+              ).map(([value, label]) => {
+                const on = surfaceTheme === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setSurfaceTheme(value)}
+                    className={
+                      on
+                        ? surfaceTheme === "dark"
+                          ? "rounded-full bg-zinc-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_1px_8px_rgba(0,0,0,0.35)]"
+                          : "rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-950 shadow-[0_1px_8px_rgba(0,0,0,0.10)]"
+                        : surfaceTheme === "dark"
+                          ? "rounded-full px-3 py-1.5 text-[11px] font-medium text-zinc-400 transition hover:text-zinc-200"
+                          : "rounded-full px-3 py-1.5 text-[11px] font-medium text-zinc-500 transition hover:text-zinc-950"
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              <label
+                className={
+                  surfaceTheme === "dark"
+                    ? "flex items-center gap-2 text-xs text-zinc-400"
+                    : "flex items-center gap-2 text-xs text-zinc-500"
+                }
+              >
                 <span className="font-medium">Width</span>
                 <input
                   type="number"
@@ -727,22 +798,41 @@ export function EmailHtmlDevicePreview({
                       e.currentTarget.blur();
                     }
                   }}
-                  className="w-[4.5rem] rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-right text-sm font-medium tabular-nums text-zinc-900 outline-none transition focus:border-zinc-300 focus:bg-white"
+                  className={
+                    surfaceTheme === "dark"
+                      ? "w-[4.5rem] rounded-xl border border-zinc-600 bg-zinc-800 px-2 py-1.5 text-right text-sm font-medium tabular-nums text-zinc-100 outline-none transition focus:border-zinc-500 focus:bg-zinc-900"
+                      : "w-[4.5rem] rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-right text-sm font-medium tabular-nums text-zinc-900 outline-none transition focus:border-zinc-300 focus:bg-white"
+                  }
                 />
-                <span className="text-zinc-400">px</span>
+                <span
+                  className={surfaceTheme === "dark" ? "text-zinc-500" : "text-zinc-400"}
+                >
+                  px
+                </span>
               </label>
-              <div className="hidden h-4 w-px bg-zinc-200 sm:block" aria-hidden />
+              <div
+                className={
+                  surfaceTheme === "dark"
+                    ? "hidden h-4 w-px bg-zinc-700 sm:block"
+                    : "hidden h-4 w-px bg-zinc-200 sm:block"
+                }
+                aria-hidden
+              />
               <div className="flex flex-wrap gap-1">
                 {([600, 640, 700, 800] as const).map((w) => (
                   <button
                     key={w}
                     type="button"
                     onClick={() => setPreviewWidth(w)}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                    className={
                       previewWidth === w
-                        ? "bg-zinc-900 text-white"
-                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-                    }`}
+                        ? surfaceTheme === "dark"
+                          ? "rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-semibold text-zinc-950"
+                          : "rounded-full bg-zinc-900 px-2.5 py-1 text-[11px] font-semibold text-white"
+                        : surfaceTheme === "dark"
+                          ? "rounded-full bg-zinc-800 px-2.5 py-1 text-[11px] font-semibold text-zinc-400 transition hover:bg-zinc-700 hover:text-zinc-200"
+                          : "rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-semibold text-zinc-600 transition hover:bg-zinc-200"
+                    }
                   >
                     {w}
                   </button>
@@ -751,8 +841,8 @@ export function EmailHtmlDevicePreview({
             </div>
           </div>
           <div className="flex justify-center overflow-x-auto p-2">
-            <div ref={captureRootRef} data-lith="frame" style={FRAME_OUTER}>
-              <div ref={frameScreenRef} data-lith="screen" style={FRAME_SCREEN}>
+            <div ref={captureRootRef} data-lith="frame" style={frameOuterStyle}>
+              <div ref={frameScreenRef} data-lith="screen" style={frameScreenStyle}>
                 <div
                   ref={emailInnerRef}
                   data-lith="scroll"
