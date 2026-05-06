@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { PreviewLab } from "./preview-lab";
+import { PreviewWorkbench } from "./preview-workbench";
 
 export const metadata: Metadata = {
-  title: "Inbox lab — Lithmuth",
+  title: "Preview — Lithmuth",
   description:
-    "Preview subject line and preheader as they appear on iPhone Mail and Android Gmail.",
+    "Inbox line preview and full HTML email in an iPhone frame — Lithmuth.",
 };
 
 export default function PreviewPage() {
   return (
-    <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-6 sm:px-6 sm:py-8">
-      <PreviewLab />
+    <main className="flex flex-1 flex-col bg-zinc-50/90 px-4 py-8 sm:px-6 sm:py-10">
+      <PreviewWorkbench />
     </main>
   );
 }

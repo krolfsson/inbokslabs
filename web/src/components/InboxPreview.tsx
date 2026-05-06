@@ -46,14 +46,14 @@ export function InboxPreview(props: {
     <div className="flex flex-col gap-6">
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-medium uppercase tracking-widest text-zinc-500">
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
             iPhone (Mail)
           </h2>
-          <span className="text-xs text-zinc-500">
+          <span className="text-[10px] tabular-nums text-zinc-400">
             {iosTheme === "dark" ? "Dark" : "Light"}
           </span>
         </div>
-        <p className="text-[11px] leading-snug text-zinc-500">
+        <p className="text-[10px] leading-snug text-zinc-400">
           {LAYOUT.iphoneWidthPx}px canvas · {LAYOUT.iosTextColumnPx}px text column · SF
           Pro–driven sizes × Dynamic Type
         </p>
@@ -149,14 +149,14 @@ export function InboxPreview(props: {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-medium uppercase tracking-widest text-zinc-500">
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
             Android (Gmail)
           </h2>
-          <span className="text-xs text-zinc-500">
+          <span className="text-[10px] tabular-nums text-zinc-400">
             {gmailTheme === "dark" ? "Dark" : "Light"}
           </span>
         </div>
-        <p className="text-[11px] leading-snug text-zinc-500">
+        <p className="text-[10px] leading-snug text-zinc-400">
           {LAYOUT.gmailWidthDp}dp canvas · {LAYOUT.gmailTextColumnPx}px text column · Roboto
           @ sp × fontScale
         </p>

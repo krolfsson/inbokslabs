@@ -93,6 +93,30 @@ function inlineStyleToObject(css: string | undefined): CSSProperties | undefined
   return out as CSSProperties;
 }
 
+/** No Tailwind on capture subtree — TW4 uses oklch/lab; html2canvas parser dies. */
+const FRAME_OUTER: CSSProperties = {
+  display: "inline-block",
+  borderRadius: 40,
+  border: "12px solid #1c1c1e",
+  backgroundColor: "#1c1c1e",
+  boxShadow: "0 24px 64px -12px rgba(0,0,0,0.35)",
+};
+
+const FRAME_SCREEN: CSSProperties = {
+  borderRadius: 32,
+  overflow: "hidden",
+  backgroundColor: "#ffffff",
+};
+
+const FRAME_SCROLL: CSSProperties = {
+  maxHeight: "min(72vh, 800px)",
+  overflowY: "auto",
+  overflowX: "hidden",
+  overflowWrap: "anywhere",
+  width: W,
+  boxSizing: "border-box",
+};
+
 const SAMPLE_HTML = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <tr><td style="padding:24px 20px 12px;font-size:22px;font-weight:600;color:#111">Weekly digest</td></tr>
   <tr><td style="padding:0 20px 16px;font-size:15px;line-height:1.45;color:#444">Hi there — here is how your campaign could look at full width inside Mail. Tables and inline CSS work best.</td></tr>
@@ -107,7 +131,11 @@ type PreviewPayload = {
   bodyStyle?: string;
 };
 
-export function EmailHtmlDevicePreview() {
+export function EmailHtmlDevicePreview({
+  embedded = false,
+}: {
+  embedded?: boolean;
+} = {}) {
   const [rawHtml, setRawHtml] = useState(SAMPLE_HTML);
   /** Folder or origin where relative <img src> paths resolve (e.g. https://cdn.example.com/campaign/). */
   const [assetBaseUrl, setAssetBaseUrl] = useState("");
@@ -149,12 +177,6 @@ export function EmailHtmlDevicePreview() {
     [preview?.bodyStyle],
   );
 
-  const previewShellClass = useMemo(
-    () =>
-      "rounded-[40px] border-[12px] border-[#1c1c1e] bg-[#1c1c1e] shadow-[0_24px_64px_-12px_rgba(0,0,0,0.35)]",
-    [],
-  );
-
   const flushLayout = () =>
     new Promise<void>((resolve) => {
       requestAnimationFrame(() => {
@@ -193,7 +215,7 @@ export function EmailHtmlDevicePreview() {
         height: root.scrollHeight,
         windowWidth: root.scrollWidth,
         windowHeight: root.scrollHeight,
-        foreignObjectRendering: false,
+        foreignObjectRendering: true,
         imageTimeout: 15000,
         onclone: (clonedDoc) => {
           sanitizeClonedDocumentForHtml2Canvas(clonedDoc);
@@ -244,28 +266,36 @@ export function EmailHtmlDevicePreview() {
   };
 
   return (
-    <section className="mt-12 space-y-6 border-t border-zinc-200 pt-12">
-      <header className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#ff5c47]">
-          Full email
+    <section className={embedded ? "space-y-8" : "mt-12 space-y-8 border-t border-zinc-200 pt-12"}>
+      {!embedded ? (
+        <header className="max-w-2xl space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#ff5c47]">
+            Full email
+          </p>
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">
+            HTML on iPhone (no status bar)
+          </h2>
+          <p className="text-sm text-zinc-600">
+            Paste a <strong>full</strong> HTML email so <code className="rounded bg-zinc-100 px-1 text-[13px]">&lt;style&gt;</code> in the head applies. Images need a{" "}
+            <strong>real URL</strong> the browser can load: <strong>relative</strong> paths (
+            <code className="text-[13px]">/img.png</code>,{" "}
+            <code className="text-[13px]">assets/x.jpg</code>) resolve against your site (
+            <code className="text-[13px]">localhost</code>) and 404 unless you set{" "}
+            <strong>asset base</strong> below. <code className="text-[13px]">cid:</code>{" "}
+            attachments do not work in a web preview. <strong>HTTP</strong> images on an{" "}
+            <strong>HTTPS</strong> page are blocked. PNG export still needs{" "}
+            <strong>CORS</strong> on remote images to paint into the canvas.
+          </p>
+        </header>
+      ) : (
+        <p className="max-w-2xl text-[12px] leading-relaxed text-zinc-500">
+          Full HTML + <code className="rounded bg-zinc-100 px-1">&lt;style&gt;</code> in head.
+          Relative <code className="rounded bg-zinc-100 px-1">src</code> → set asset base.{" "}
+          <code className="rounded bg-zinc-100 px-1">cid:</code> no. PNG needs CORS on images.
         </p>
-        <h2 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">
-          HTML on iPhone (no status bar)
-        </h2>
-        <p className="text-sm text-zinc-600">
-          Paste a <strong>full</strong> HTML email so <code className="rounded bg-zinc-100 px-1 text-[13px]">&lt;style&gt;</code> in the head applies. Images need a{" "}
-          <strong>real URL</strong> the browser can load: <strong>relative</strong> paths (
-          <code className="text-[13px]">/img.png</code>,{" "}
-          <code className="text-[13px]">assets/x.jpg</code>) resolve against your site (
-          <code className="text-[13px]">localhost</code>) and 404 unless you set{" "}
-          <strong>asset base</strong> below. <code className="text-[13px]">cid:</code>{" "}
-          attachments do not work in a web preview. <strong>HTTP</strong> images on an{" "}
-          <strong>HTTPS</strong> page are blocked. PNG export still needs{" "}
-          <strong>CORS</strong> on remote images to paint into the canvas.
-        </p>
-      </header>
+      )}
 
-      <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
+      <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
         <div className="space-y-4">
           <label className="block space-y-1.5">
             <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
@@ -332,15 +362,13 @@ export function EmailHtmlDevicePreview() {
               : "no document styles (fragment only)"}
           </p>
           <div className="flex max-h-[min(78vh,880px)] justify-center overflow-auto pb-2">
-            <div
-              ref={captureRootRef}
-              className={`inline-block ${previewShellClass}`}
-            >
-              <div className="overflow-hidden rounded-[32px] bg-white">
+            <div ref={captureRootRef} data-lith="frame" style={FRAME_OUTER}>
+              <div data-lith="screen" style={FRAME_SCREEN}>
                 <div
                   ref={emailInnerRef}
-                  className="email-preview-root max-h-[min(72vh,800px)] overflow-y-auto overflow-x-hidden [overflow-wrap:anywhere]"
-                  style={{ width: W, boxSizing: "border-box" }}
+                  data-lith="scroll"
+                  data-email-root
+                  style={FRAME_SCROLL}
                 >
                   {preview?.styleTexts.map((css, i) => (
                     <style key={i} dangerouslySetInnerHTML={{ __html: css }} />
