@@ -1,6 +1,5 @@
 "use client";
 
-import html2canvas from "html2canvas";
 import {
   useCallback,
   useEffect,
@@ -9,12 +8,12 @@ import {
   useState,
 } from "react";
 import type { CSSProperties } from "react";
+import { toPng } from "html-to-image";
 import {
   parseEmailForPreview,
   resolveRelativeAssetUrls,
   stripDangerousCss,
 } from "@/lib/emailHtmlUtils";
-import { sanitizeClonedDocumentForHtml2Canvas } from "@/lib/html2canvasCssFix";
 
 /** Full HTML preview artboard (typical email width). Inbox tabs still use 390px device mockups. */
 const W = 600;
@@ -93,7 +92,7 @@ function inlineStyleToObject(css: string | undefined): CSSProperties | undefined
   return out as CSSProperties;
 }
 
-/** No Tailwind on capture subtree — TW4 uses oklch/lab; html2canvas parser dies. */
+/** No Tailwind on capture subtree — TW4 uses oklch/lab; DOM export stays isolated from app CSS. */
 const FRAME_OUTER: CSSProperties = {
   display: "inline-block",
   borderRadius: 28,
@@ -567,46 +566,25 @@ export function EmailHtmlDevicePreview({
       await waitForImages(clone);
       await flushLayout();
 
-      const exportWidth = clone.scrollWidth;
+      const exportWidth = Math.max(clone.scrollWidth, clone.offsetWidth);
       const exportHeight = Math.max(clone.scrollHeight, clone.offsetHeight);
 
-      const canvas = await html2canvas(clone, {
-        scale: EXPORT_SCALE,
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        foreignObjectRendering: false,
-        imageTimeout: 20000,
+      const dataUrl = await toPng(clone, {
+        cacheBust: true,
+        pixelRatio: EXPORT_SCALE,
         width: exportWidth,
         height: exportHeight,
-        windowWidth: exportWidth,
-        windowHeight: exportHeight,
-        scrollX: 0,
-        scrollY: 0,
-        onclone: (clonedDoc) => {
-          sanitizeClonedDocumentForHtml2Canvas(clonedDoc);
+        backgroundColor: "#ffffff",
+        style: {
+          margin: "0",
+          transform: "none",
         },
       });
 
-      await new Promise<void>((res, rej) => {
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              rej(new Error("Empty canvas"));
-              return;
-            }
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `lithmuth-iphone-email-${Date.now()}.png`;
-            a.click();
-            URL.revokeObjectURL(url);
-            res();
-          },
-          "image/png",
-          1,
-        );
-      });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `lithmuth-email-${Date.now()}.png`;
+      a.click();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Export failed.";
       setExportError(msg);
@@ -704,7 +682,7 @@ export function EmailHtmlDevicePreview({
               {W}px
             </span>
           </div>
-          <div className="flex max-h-[min(74vh,880px)] justify-center overflow-auto p-2">
+          <div className="flex justify-center overflow-x-auto p-2">
             <div ref={captureRootRef} data-lith="frame" style={FRAME_OUTER}>
               <div ref={frameScreenRef} data-lith="screen" style={FRAME_SCREEN}>
                 <div

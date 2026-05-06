@@ -14,7 +14,7 @@ body {
   color: #18181b;
 }
 
-/* Pasted email HTML preview — attribute hooks avoid Tailwind class noise in html2canvas */
+/* Pasted email HTML preview — attribute hooks scope email content and export */
 [data-email-root] {
   -webkit-text-size-adjust: 100%;
   /* Allow shrinking inside fixed device width; wide tables scroll horizontally instead of clipping only */
