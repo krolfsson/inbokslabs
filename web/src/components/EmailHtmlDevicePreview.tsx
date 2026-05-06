@@ -186,20 +186,41 @@ const EMAIL_PREVIEW_OVERRIDE_CSS = `
     display: table-cell !important;
   }
 }
-[data-email-root] table.cta-btn > tbody > tr > td {
-  overflow: hidden !important;
+[data-email-root] .sf-cta table.cta-btn,
+[data-email-root] .sf-cta table.cta-btn > tbody,
+[data-email-root] .sf-cta table.cta-btn > tbody > tr,
+[data-email-root] .sf-cta table.cta-btn > tbody > tr > td,
+[data-email-root] .hero .sf-cta table.cta-btn > tbody > tr > td,
+[data-email-root] .regular .sf-cta table.cta-btn > tbody > tr > td,
+[data-email-root] .info .sf-cta table.cta-btn > tbody > tr > td,
+[data-email-root] .highlight .sf-cta table.cta-btn > tbody > tr > td,
+[data-email-root] .notice .sf-cta table.cta-btn > tbody > tr > td {
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
   border-color: transparent !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+[data-email-root] .sf-cta table.cta-btn > tbody > tr > td {
+  overflow: hidden !important;
   box-sizing: border-box !important;
 }
-[data-email-root] table.cta-btn .fix-btn {
+[data-email-root] .sf-cta table.cta-btn .fix-btn {
   overflow: hidden !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
 }
-[data-email-root] table.cta-btn a {
+[data-email-root] .sf-cta table.cta-btn a {
   box-sizing: border-box !important;
   padding-left: 24px !important;
   padding-right: 24px !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
 }
-[data-email-root] table.cta-btn a i {
+[data-email-root] .sf-cta table.cta-btn a i {
   display: none !important;
   width: 0 !important;
   max-width: 0 !important;
