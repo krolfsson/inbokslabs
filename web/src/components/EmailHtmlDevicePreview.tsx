@@ -276,7 +276,10 @@ export function EmailHtmlDevicePreview({
             HTML on iPhone (no status bar)
           </h2>
           <p className="text-sm text-zinc-600">
-            Paste a <strong>full</strong> HTML email so <code className="rounded bg-zinc-100 px-1 text-[13px]">&lt;style&gt;</code> in the head applies. Images need a{" "}
+            Paste <strong>full HTML</strong> or a Gmail / Apple Mail{" "}
+            <strong>&quot;raw source&quot;</strong> / .eml (headers + MIME parts); we pick{" "}
+            <code className="rounded bg-zinc-100 px-1 text-[13px]">text/html</code>, decode quoted-printable/base64, then render.{" "}
+            Images need a{" "}
             <strong>real URL</strong> the browser can load: <strong>relative</strong> paths (
             <code className="text-[13px]">/img.png</code>,{" "}
             <code className="text-[13px]">assets/x.jpg</code>) resolve against your site (
@@ -289,6 +292,7 @@ export function EmailHtmlDevicePreview({
         </header>
       ) : (
         <p className="max-w-2xl text-[12px] leading-relaxed text-zinc-500">
+          HTML or raw .eml (we extract <code className="rounded bg-zinc-100 px-1">text/html</code>).
           Full HTML + <code className="rounded bg-zinc-100 px-1">&lt;style&gt;</code> in head.
           Relative <code className="rounded bg-zinc-100 px-1">src</code> → set asset base.{" "}
           <code className="rounded bg-zinc-100 px-1">cid:</code> no. PNG needs CORS on images.
@@ -324,7 +328,7 @@ export function EmailHtmlDevicePreview({
               onChange={(e) => setRawHtml(e.target.value)}
               spellCheck={false}
               className="textarea-email-html h-[min(320px,42vh)] w-full resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-[13px] leading-relaxed text-zinc-800 shadow-sm outline-none focus:border-[#ff5c47]/40 focus:ring-2 focus:ring-[#ff5c47]/20"
-              placeholder="Paste full HTML (include &lt;head&gt; styles) or a body fragment…"
+              placeholder="Full HTML, body only, or raw message source (.eml) with headers…"
             />
           </label>
 
