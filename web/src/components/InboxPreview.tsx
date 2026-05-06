@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  GMAIL_BASE_SP,
-  IOS_BASE_PT,
-  LAYOUT,
-  androidFontScale,
-  iosTypeScale,
-  type TextSizePreset,
-} from "@/lib/inboxTypography";
+import { GMAIL_BASE_SP, IOS_BASE_PT, LAYOUT } from "@/lib/inboxTypography";
 
 type Theme = "light" | "dark";
 
@@ -17,12 +10,14 @@ export function InboxPreview(props: {
   preheader: string;
   iosTheme: Theme;
   gmailTheme: Theme;
-  textSize: TextSizePreset;
+  iosScale: number;
+  androidScale: number;
 }) {
-  const { sender, subject, preheader, iosTheme, gmailTheme, textSize } = props;
+  const { sender, subject, preheader, iosTheme, gmailTheme, iosScale, androidScale } =
+    props;
 
-  const iosM = iosTypeScale(textSize);
-  const andM = androidFontScale(textSize);
+  const iosM = iosScale;
+  const andM = androidScale;
 
   const ios = {
     sender: IOS_BASE_PT.sender * iosM,
@@ -48,7 +43,7 @@ export function InboxPreview(props: {
       : "bg-white text-[#202124] border-[#e0e0e0]";
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
+    <div className="flex flex-col gap-6">
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-medium uppercase tracking-widest text-zinc-500">
@@ -64,7 +59,7 @@ export function InboxPreview(props: {
         </p>
 
         <div
-          className={`mx-auto overflow-hidden rounded-[18px] border shadow-[0_20px_60px_-24px_rgba(0,0,0,0.6)] ${iosBg}`}
+          className={`mx-auto overflow-hidden rounded-[18px] border border-black/10 shadow-lg shadow-zinc-900/10 ${iosBg}`}
           style={{ width: LAYOUT.iphoneWidthPx, maxWidth: "100%" }}
         >
           <div className="border-b border-white/10 bg-black/10 px-4 py-2 text-center font-medium tracking-wide text-zinc-500">
@@ -167,7 +162,7 @@ export function InboxPreview(props: {
         </p>
 
         <div
-          className={`mx-auto overflow-hidden rounded-[18px] border shadow-[0_20px_60px_-24px_rgba(0,0,0,0.6)] ${gmailBg}`}
+          className={`mx-auto overflow-hidden rounded-[18px] border border-black/10 shadow-lg shadow-zinc-900/10 ${gmailBg}`}
           style={{ width: LAYOUT.gmailWidthDp, maxWidth: "100%" }}
         >
           <div

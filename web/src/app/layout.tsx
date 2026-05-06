@@ -39,9 +39,9 @@ export default function RootLayout({
       lang="en"
       className={`${dmSans.variable} ${fraunces.variable} h-full scroll-smooth antialiased`}
     >
-      <body className="min-h-full bg-[#06060a] text-zinc-100">
+      <body className="flex min-h-full flex-col bg-zinc-50 text-zinc-900">
         <SiteHeader />
-        {children}
+        <div className="flex flex-1 flex-col">{children}</div>
       </body>
     </html>
   );

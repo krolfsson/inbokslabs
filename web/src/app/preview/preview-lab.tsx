@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { InboxPreview } from "@/components/InboxPreview";
 import {
-  TEXT_SIZE_OPTIONS,
-  type TextSizePreset,
+  nearestPresetLabel,
+  scalesFromSlider,
 } from "@/lib/inboxTypography";
 
 export function PreviewLab() {
@@ -17,7 +17,13 @@ export function PreviewLab() {
   );
   const [iosTheme, setIosTheme] = useState<"light" | "dark">("light");
   const [gmailTheme, setGmailTheme] = useState<"light" | "dark">("light");
-  const [textSize, setTextSize] = useState<TextSizePreset>("large");
+  /** 0 = smallest text scale, 100 = largest (interpolates preset curve). */
+  const [textSlider, setTextSlider] = useState(50);
+
+  const { ios: iosScale, android: androidScale } = useMemo(
+    () => scalesFromSlider(textSlider),
+    [textSlider],
+  );
 
   const counts = useMemo(() => {
     return {
@@ -26,52 +32,82 @@ export function PreviewLab() {
     };
   }, [subject, preheader]);
 
+  const sizeLabel = nearestPresetLabel(textSlider);
+
+  const fieldClass =
+    "w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-[#ff5c47]/40 focus:ring-2 focus:ring-[#ff5c47]/20";
+
+  const selectClass =
+    "w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm outline-none focus:border-[#ff5c47]/40 focus:ring-2 focus:ring-[#ff5c47]/20";
+
   return (
-    <div className="space-y-10">
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset] backdrop-blur">
-        <div className="grid gap-6 md:grid-cols-2">
-          <label className="block space-y-2">
-            <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+    <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-10">
+      <div className="min-w-0 space-y-5 lg:sticky lg:top-[4.5rem] lg:self-start">
+        <header className="space-y-1 lg:pr-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#ff5c47]">
+            Inbox lab
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+            Shape how the inbox reads your story
+          </h1>
+          <p className="text-sm leading-relaxed text-zinc-600">
+            Dial in copy and see iPhone Mail and Android Gmail list rows before send.
+          </p>
+        </header>
+
+        <div className="space-y-5 rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
+          <label className="block space-y-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
               Sender name
             </span>
             <input
               value={sender}
               onChange={(e) => setSender(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none ring-[#ff5c47]/0 transition focus:border-[#ff5c47]/50 focus:ring-2 focus:ring-[#ff5c47]/30"
+              className={fieldClass}
               placeholder="Company or person"
             />
           </label>
-          <label className="block space-y-2">
-            <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-              Text size (display & content)
-            </span>
-            <select
-              value={textSize}
-              onChange={(e) =>
-                setTextSize(e.target.value as TextSizePreset)
-              }
-              title={
-                TEXT_SIZE_OPTIONS.find((o) => o.value === textSize)
-                  ?.description
-              }
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none"
-            >
-              {TEXT_SIZE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value} title={o.description}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-[11px] text-zinc-600">
-              {
-                TEXT_SIZE_OPTIONS.find((o) => o.value === textSize)
-                  ?.description
-              }
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+                Text size
+              </span>
+              <span className="text-[11px] tabular-nums text-zinc-500">
+                {sizeLabel} · iOS ×{iosScale.toFixed(3)} · Android ×
+                {androidScale.toFixed(3)}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="shrink-0 text-xs font-medium text-zinc-400">
+                A
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={0.5}
+                value={textSlider}
+                onChange={(e) => setTextSlider(Number(e.target.value))}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={textSlider}
+                aria-label="Text size for inbox previews"
+                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-zinc-200 accent-[#ff5c47] [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#ff5c47] [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-[#ff5c47]"
+              />
+              <span className="shrink-0 text-lg font-medium leading-none text-zinc-400">
+                A
+              </span>
+            </div>
+            <p className="text-[11px] leading-snug text-zinc-500">
+              Interpolates iOS Dynamic Type–style and Android font-scale anchors.
+              Smaller ↔ larger like display &amp; text sizing in system settings.
             </p>
-          </label>
-          <div className="grid grid-cols-2 gap-4 md:col-span-2">
-            <label className="block space-y-2">
-              <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-1.5">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
                 iPhone theme
               </span>
               <select
@@ -79,14 +115,14 @@ export function PreviewLab() {
                 onChange={(e) =>
                   setIosTheme(e.target.value as "light" | "dark")
                 }
-                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none"
+                className={selectClass}
               >
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
               </select>
             </label>
-            <label className="block space-y-2">
-              <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+            <label className="block space-y-1.5">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
                 Gmail theme
               </span>
               <select
@@ -94,62 +130,61 @@ export function PreviewLab() {
                 onChange={(e) =>
                   setGmailTheme(e.target.value as "light" | "dark")
                 }
-                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none"
+                className={selectClass}
               >
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
               </select>
             </label>
           </div>
+
+          <label className="block space-y-1.5">
+            <span className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              Subject
+              <span className="font-mono text-[10px] text-zinc-400">
+                {counts.subject} chars
+              </span>
+            </span>
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className={fieldClass}
+            />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              Preheader / preview text
+              <span className="font-mono text-[10px] text-zinc-400">
+                {counts.preheader} chars
+              </span>
+            </span>
+            <textarea
+              value={preheader}
+              onChange={(e) => setPreheader(e.target.value)}
+              rows={3}
+              className={`${fieldClass} resize-y py-3`}
+            />
+          </label>
+
+          <p className="text-[11px] leading-relaxed text-zinc-500">
+            Truncation is width-based at fixed column sizes (ellipsis), not a character
+            cap. Mail/Gmail on real hardware can still differ slightly.
+          </p>
         </div>
-
-        <label className="mt-6 block space-y-2">
-          <span className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-zinc-500">
-            Subject
-            <span className="font-mono text-[10px] text-zinc-600">
-              {counts.subject} chars
-            </span>
-          </span>
-          <input
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none ring-[#ff5c47]/0 transition focus:border-[#ff5c47]/50 focus:ring-2 focus:ring-[#ff5c47]/30"
-          />
-        </label>
-
-        <label className="mt-4 block space-y-2">
-          <span className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-zinc-500">
-            Preheader / preview text
-            <span className="font-mono text-[10px] text-zinc-600">
-              {counts.preheader} chars
-            </span>
-          </span>
-          <textarea
-            value={preheader}
-            onChange={(e) => setPreheader(e.target.value)}
-            rows={3}
-            className="w-full resize-y rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none ring-[#ff5c47]/0 transition focus:border-[#ff5c47]/50 focus:ring-2 focus:ring-[#ff5c47]/30"
-          />
-        </label>
-
-        <p className="mt-4 text-xs leading-relaxed text-zinc-500">
-          Sizes follow Apple’s Dynamic Type ratios (vs default Large) on the iPhone
-          mock and Android font-scale presets on Gmail — not the same numbers as each
-          other, like real OS settings. Truncation uses the same fixed column widths as
-          the reference canvases (ellipsis), not a character cap. Pixel-perfect vs
-          production Mail/Gmail still varies by OS version, weight, and real device
-          font metrics.
-        </p>
       </div>
 
-      <InboxPreview
-        sender={sender}
-        subject={subject}
-        preheader={preheader}
-        iosTheme={iosTheme}
-        gmailTheme={gmailTheme}
-        textSize={textSize}
-      />
+      <div className="mt-10 min-w-0 lg:mt-0">
+        <InboxPreview
+          sender={sender}
+          subject={subject}
+          preheader={preheader}
+          iosTheme={iosTheme}
+          gmailTheme={gmailTheme}
+          iosScale={iosScale}
+          androidScale={androidScale}
+        />
+      </div>
     </div>
   );
 }

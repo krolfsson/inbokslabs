@@ -137,6 +137,51 @@ export const LAYOUT = {
   gmailTextColumnPx: GMAIL_W - GMAIL_PAD * 2 - GMAIL_AV - GMAIL_GAP,
 } as const;
 
+const PRESET_ORDER: TextSizePreset[] = [
+  "xSmall",
+  "small",
+  "medium",
+  "large",
+  "xLarge",
+  "xxLarge",
+  "xxxLarge",
+];
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/**
+ * Smoothly interpolates iOS Dynamic Type–style and Android font-scale multipliers
+ * from a 0–100 slider (0 = smallest, 100 = largest preset).
+ */
+export function scalesFromSlider(value0to100: number): {
+  ios: number;
+  android: number;
+} {
+  const v = Math.min(100, Math.max(0, value0to100));
+  const segments = PRESET_ORDER.length - 1;
+  const x = (v / 100) * segments;
+  const lo = Math.min(segments, Math.floor(x));
+  const hi = Math.min(segments, Math.ceil(x));
+  const t = hi === lo ? 0 : x - lo;
+  const pLo = PRESET_ORDER[lo];
+  const pHi = PRESET_ORDER[hi];
+  return {
+    ios: lerp(IOS_DT_MULTIPLIER[pLo], IOS_DT_MULTIPLIER[pHi], t),
+    android: lerp(ANDROID_FONT_SCALE[pLo], ANDROID_FONT_SCALE[pHi], t),
+  };
+}
+
+/** Maps 0–100 to nearest preset name for screen readers / help text. */
+export function nearestPresetLabel(value0to100: number): string {
+  const v = Math.min(100, Math.max(0, value0to100));
+  const idx = Math.round((v / 100) * (PRESET_ORDER.length - 1));
+  const preset = PRESET_ORDER[idx];
+  const row = TEXT_SIZE_OPTIONS.find((o) => o.value === preset);
+  return row?.label ?? "Default";
+}
+
 export function iosTypeScale(preset: TextSizePreset): number {
   return IOS_DT_MULTIPLIER[preset];
 }
