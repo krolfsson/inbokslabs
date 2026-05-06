@@ -21,5 +21,4 @@ ENV CHROME_BIN=/usr/bin/chromium \
 WORKDIR /app
 COPY --from=build /out/render /app/render
 EXPOSE 8080
-USER nobody
 CMD ["/app/render"]
