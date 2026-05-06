@@ -306,17 +306,16 @@ function AppleMailMock({
               </span>
             </div>
             <p
-              className="line-clamp-2 break-words font-semibold leading-snug"
+              className="truncate font-semibold leading-snug"
               style={{
                 fontFamily:
                   platform === "ios"
                     ? 'system-ui, -apple-system, "SF Pro Text", sans-serif'
                     : '"Roboto", system-ui, sans-serif',
                 fontSize: type.subject,
-                lineHeight: 1.24,
+                lineHeight: 1.26,
                 marginTop: 2,
                 letterSpacing: "-0.25px",
-                overflowWrap: "anywhere",
               }}
             >
               {subject || " "}
