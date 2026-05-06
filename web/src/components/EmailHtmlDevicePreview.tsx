@@ -12,6 +12,7 @@ import type { CSSProperties } from "react";
 import { LAYOUT } from "@/lib/inboxTypography";
 import {
   parseEmailForPreview,
+  resolveRelativeAssetUrls,
   stripDangerousCss,
 } from "@/lib/emailHtmlUtils";
 
@@ -107,6 +108,8 @@ type PreviewPayload = {
 
 export function EmailHtmlDevicePreview() {
   const [rawHtml, setRawHtml] = useState(SAMPLE_HTML);
+  /** Folder or origin where relative <img src> paths resolve (e.g. https://cdn.example.com/campaign/). */
+  const [assetBaseUrl, setAssetBaseUrl] = useState("");
   const [preview, setPreview] = useState<PreviewPayload | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -118,7 +121,11 @@ export function EmailHtmlDevicePreview() {
     let cancelled = false;
     void import("dompurify").then(({ default: DOMPurify }) => {
       const parsed = parseEmailForPreview(rawHtml);
-      const cleanBody = DOMPurify.sanitize(parsed.bodyHtml, PURIFY_BODY);
+      const withUrls = resolveRelativeAssetUrls(
+        parsed.bodyHtml,
+        assetBaseUrl,
+      );
+      const cleanBody = DOMPurify.sanitize(withUrls, PURIFY_BODY);
       const styleTexts = parsed.styleTexts.map(stripDangerousCss);
       if (!cancelled) {
         setPreview({
@@ -132,7 +139,7 @@ export function EmailHtmlDevicePreview() {
     return () => {
       cancelled = true;
     };
-  }, [rawHtml]);
+  }, [rawHtml, assetBaseUrl]);
 
   const hasContent = (preview?.bodyHtml.length ?? 0) > 0;
 
@@ -242,13 +249,38 @@ export function EmailHtmlDevicePreview() {
           HTML on iPhone (no status bar)
         </h2>
         <p className="text-sm text-zinc-600">
-          Paste a <strong>full</strong> HTML email so <code className="rounded bg-zinc-100 px-1 text-[13px]">&lt;style&gt;</code> in the head applies. Preview scrolls in a bezel-only frame. Save a high-resolution PNG (
-          {EXPORT_SCALE}×). Remote images need CORS or they may be missing.
+          Paste a <strong>full</strong> HTML email so <code className="rounded bg-zinc-100 px-1 text-[13px]">&lt;style&gt;</code> in the head applies. Images need a{" "}
+          <strong>real URL</strong> the browser can load: <strong>relative</strong> paths (
+          <code className="text-[13px]">/img.png</code>,{" "}
+          <code className="text-[13px]">assets/x.jpg</code>) resolve against your site (
+          <code className="text-[13px]">localhost</code>) and 404 unless you set{" "}
+          <strong>asset base</strong> below. <code className="text-[13px]">cid:</code>{" "}
+          attachments do not work in a web preview. <strong>HTTP</strong> images on an{" "}
+          <strong>HTTPS</strong> page are blocked. PNG export still needs{" "}
+          <strong>CORS</strong> on remote images to paint into the canvas.
         </p>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
         <div className="space-y-4">
+          <label className="block space-y-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              Asset base URL (fixes relative images)
+            </span>
+            <input
+              type="url"
+              value={assetBaseUrl}
+              onChange={(e) => setAssetBaseUrl(e.target.value)}
+              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 shadow-sm outline-none placeholder:text-zinc-400 focus:border-[#ff5c47]/40 focus:ring-2 focus:ring-[#ff5c47]/20"
+              placeholder="https://your-cdn.com/path/to/email-folder/"
+            />
+            <p className="text-[11px] text-zinc-500">
+              Use the folder your images live under, often with a trailing slash. Required
+              if HTML uses relative <code className="font-mono text-[11px]">src=</code>{" "}
+              paths.
+            </p>
+          </label>
+
           <label className="block space-y-1.5">
             <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
               Email HTML

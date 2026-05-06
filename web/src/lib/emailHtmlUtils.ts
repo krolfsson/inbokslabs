@@ -19,6 +19,103 @@ export function stripDangerousCss(css: string): string {
     .replace(/javascript\s*:/gi, "blocked:");
 }
 
+function isAbsoluteOrSpecialUrl(url: string): boolean {
+  const u = url.trim();
+  if (!u) return true;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(u)) return true;
+  if (u.startsWith("data:") || u.startsWith("blob:") || u.startsWith("cid:"))
+    return true;
+  if (u.startsWith("//")) return true;
+  return false;
+}
+
+function resolveSrcset(srcset: string, base: URL): string {
+  return srcset
+    .split(",")
+    .map((piece) => {
+      const part = piece.trim();
+      const lastSpace = part.lastIndexOf(" ");
+      const maybeDesc =
+        lastSpace > 0 ? part.slice(lastSpace + 1).trim() : "";
+      const hasDesc =
+        /^\d+(\.\d+)?x$/i.test(maybeDesc) || /^\d+w$/i.test(maybeDesc);
+      if (hasDesc && lastSpace > 0) {
+        const urlPart = part.slice(0, lastSpace).trim();
+        if (isAbsoluteOrSpecialUrl(urlPart)) return part;
+        try {
+          return `${new URL(urlPart, base).href} ${maybeDesc}`;
+        } catch {
+          return part;
+        }
+      }
+      if (isAbsoluteOrSpecialUrl(part)) return part;
+      try {
+        return new URL(part, base).href;
+      } catch {
+        return part;
+      }
+    })
+    .join(", ");
+}
+
+/**
+ * Turn relative image/media URLs into absolute using a page or asset base (folder) URL.
+ * Does not fix `cid:` (attachments) or blocked hosts — see UI copy.
+ */
+export function resolveRelativeAssetUrls(
+  html: string,
+  baseUrl: string,
+): string {
+  const h = html.trim();
+  const b = baseUrl.trim();
+  if (!h || !b || typeof window === "undefined") return html;
+
+  let base: URL;
+  try {
+    const raw = b.includes("://") ? b : `https://${b}`;
+    base = new URL(raw);
+  } catch {
+    return html;
+  }
+
+  const doc = new DOMParser().parseFromString(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><div class="lith-email-frag">${h}</div></body></html>`,
+    "text/html",
+  );
+  const root = doc.querySelector(".lith-email-frag");
+  if (!root) return html;
+
+  const attrs = ["src", "poster", "data"] as const;
+
+  const touch = (el: Element, attr: string) => {
+    const v = el.getAttribute(attr);
+    if (!v || isAbsoluteOrSpecialUrl(v)) return;
+    try {
+      el.setAttribute(attr, new URL(v, base).href);
+    } catch {
+      /* keep */
+    }
+  };
+
+  root.querySelectorAll("img").forEach((el) => touch(el, "src"));
+  root.querySelectorAll("source[src]").forEach((el) => touch(el, "src"));
+  root.querySelectorAll("video[src], audio[src], embed[src]").forEach((el) =>
+    touch(el, "src"),
+  );
+  root.querySelectorAll("iframe[src]").forEach((el) => touch(el, "src"));
+  root.querySelectorAll("object[data]").forEach((el) => touch(el, "data"));
+
+  root
+    .querySelectorAll("img[srcset], source[srcset]")
+    .forEach((el) => {
+      const ss = el.getAttribute("srcset");
+      if (!ss?.trim()) return;
+      el.setAttribute("srcset", resolveSrcset(ss, base));
+    });
+
+  return root.innerHTML;
+}
+
 /**
  * Parse pasted HTML: extract &lt;style&gt; blocks and body inner HTML like a real client.
  * Fragments (no &lt;html&gt;) are wrapped so partial snippets still render.
