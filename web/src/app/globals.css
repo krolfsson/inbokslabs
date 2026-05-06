@@ -19,11 +19,13 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-.email-preview-root img {
+.email-preview-root img,
+.email-preview-body img {
   max-width: 100% !important;
   height: auto !important;
 }
 
-.email-preview-root table {
+.email-preview-root table,
+.email-preview-body table {
   border-collapse: collapse;
 }

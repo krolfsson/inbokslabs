@@ -1,21 +1,41 @@
 "use client";
 
 import html2canvas from "html2canvas";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { CSSProperties } from "react";
 import { LAYOUT } from "@/lib/inboxTypography";
-import { extractEmailFragment } from "@/lib/emailHtmlUtils";
+import {
+  parseEmailForPreview,
+  stripDangerousCss,
+} from "@/lib/emailHtmlUtils";
 
 const W = LAYOUT.iphoneWidthPx;
 
-/** Logical px → raster px width on export (high-res). */
 const EXPORT_SCALE = 3;
 
-const PURIFY_OPTIONS = {
-  WHOLE_DOCUMENT: false,
-  ADD_TAGS: ["style", "picture", "source"],
+/** Email-like HTML: allow classes, tables, inline CSS (profiles + extras). */
+const PURIFY_BODY = {
+  USE_PROFILES: { html: true },
+  ADD_TAGS: [
+    "style",
+    "picture",
+    "source",
+    "main",
+    "section",
+    "article",
+    "center",
+    "font",
+  ],
   ADD_ATTR: [
     "style",
     "class",
+    "id",
     "align",
     "valign",
     "bgcolor",
@@ -31,11 +51,45 @@ const PURIFY_OPTIONS = {
     "rel",
     "role",
     "aria-label",
+    "aria-hidden",
     "media",
     "srcset",
     "sizes",
+    "dir",
+    "lang",
+    "title",
+    "alt",
+    "name",
+    "content",
+    "http-equiv",
+    "face",
+    "color",
+    "size",
+    "href",
+    "src",
   ],
 };
+
+function inlineStyleToObject(css: string | undefined): CSSProperties | undefined {
+  if (!css?.trim()) return undefined;
+  const out: Record<string, string> = {};
+  for (const part of css.split(";")) {
+    const idx = part.indexOf(":");
+    if (idx === -1) continue;
+    const rawKey = part.slice(0, idx).trim().toLowerCase();
+    const val = part.slice(idx + 1).trim();
+    if (!rawKey || !val) continue;
+    const camel = rawKey.replace(/-([a-z])/g, (_, g: string) =>
+      g.toUpperCase(),
+    );
+    if (rawKey === "float" || camel === "float") {
+      Object.assign(out, { float: val });
+      continue;
+    }
+    (out as Record<string, string>)[camel] = val;
+  }
+  return out as CSSProperties;
+}
 
 const SAMPLE_HTML = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <tr><td style="padding:24px 20px 12px;font-size:22px;font-weight:600;color:#111">Weekly digest</td></tr>
@@ -44,9 +98,16 @@ const SAMPLE_HTML = `<table role="presentation" width="100%" cellpadding="0" cel
   <tr><td style="padding:16px 20px;border-top:1px solid #eee;font-size:12px;color:#888">You are receiving this because you asked for a preview.</td></tr>
 </table>`;
 
+type PreviewPayload = {
+  styleTexts: string[];
+  bodyHtml: string;
+  bodyClass?: string;
+  bodyStyle?: string;
+};
+
 export function EmailHtmlDevicePreview() {
   const [rawHtml, setRawHtml] = useState(SAMPLE_HTML);
-  const [sanitized, setSanitized] = useState("");
+  const [preview, setPreview] = useState<PreviewPayload | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -56,16 +117,29 @@ export function EmailHtmlDevicePreview() {
   useEffect(() => {
     let cancelled = false;
     void import("dompurify").then(({ default: DOMPurify }) => {
-      const fragment = extractEmailFragment(rawHtml);
-      const clean = DOMPurify.sanitize(fragment, PURIFY_OPTIONS);
-      if (!cancelled) setSanitized(clean);
+      const parsed = parseEmailForPreview(rawHtml);
+      const cleanBody = DOMPurify.sanitize(parsed.bodyHtml, PURIFY_BODY);
+      const styleTexts = parsed.styleTexts.map(stripDangerousCss);
+      if (!cancelled) {
+        setPreview({
+          styleTexts,
+          bodyHtml: cleanBody,
+          bodyClass: parsed.bodyClass,
+          bodyStyle: parsed.bodyElementStyle,
+        });
+      }
     });
     return () => {
       cancelled = true;
     };
   }, [rawHtml]);
 
-  const hasContent = sanitized.length > 0;
+  const hasContent = (preview?.bodyHtml.length ?? 0) > 0;
+
+  const bodyStyleObj = useMemo(
+    () => inlineStyleToObject(preview?.bodyStyle),
+    [preview?.bodyStyle],
+  );
 
   const previewShellClass = useMemo(
     () =>
@@ -168,10 +242,8 @@ export function EmailHtmlDevicePreview() {
           HTML on iPhone (no status bar)
         </h2>
         <p className="text-sm text-zinc-600">
-          Paste or upload HTML. Preview scrolls inside a bezel-only frame — no clock,
-          signal bars, or menus. Save a high-resolution PNG of the full email (
-          {EXPORT_SCALE}×, ~{W * EXPORT_SCALE}px wide). Remote images need CORS or they
-          may be blank in the PNG.
+          Paste a <strong>full</strong> HTML email so <code className="rounded bg-zinc-100 px-1 text-[13px]">&lt;style&gt;</code> in the head applies. Preview scrolls in a bezel-only frame. Save a high-resolution PNG (
+          {EXPORT_SCALE}×). Remote images need CORS or they may be missing.
         </p>
       </header>
 
@@ -186,7 +258,7 @@ export function EmailHtmlDevicePreview() {
               onChange={(e) => setRawHtml(e.target.value)}
               spellCheck={false}
               className="textarea-email-html h-[min(320px,42vh)] w-full resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-[13px] leading-relaxed text-zinc-800 shadow-sm outline-none focus:border-[#ff5c47]/40 focus:ring-2 focus:ring-[#ff5c47]/20"
-              placeholder="Paste HTML or a full &lt;html&gt; document…"
+              placeholder="Paste full HTML (include &lt;head&gt; styles) or a body fragment…"
             />
           </label>
 
@@ -218,7 +290,10 @@ export function EmailHtmlDevicePreview() {
 
         <div className="flex flex-col items-center gap-3 lg:items-end">
           <p className="w-full text-center text-[11px] text-zinc-500 lg:text-right">
-            {W}px wide · bezel only · PNG includes full email height
+            {W}px wide ·&nbsp;
+            {preview?.styleTexts.length
+              ? `${preview.styleTexts.length} &lt;style&gt; block(s) applied`
+              : "no document styles (fragment only)"}
           </p>
           <div className="flex max-h-[min(78vh,880px)] justify-center overflow-auto pb-2">
             <div
@@ -226,17 +301,32 @@ export function EmailHtmlDevicePreview() {
               className={`inline-block ${previewShellClass}`}
             >
               <div className="overflow-hidden rounded-[32px] bg-white">
-                {/* On-screen: scroll; export expands to full height */}
                 <div
                   ref={emailInnerRef}
-                  className="email-preview-root max-h-[min(72vh,800px)] overflow-y-auto overflow-x-hidden bg-white [overflow-wrap:anywhere]"
+                  className="email-preview-root max-h-[min(72vh,800px)] overflow-y-auto overflow-x-hidden [overflow-wrap:anywhere]"
                   style={{ width: W, boxSizing: "border-box" }}
-                  dangerouslySetInnerHTML={
-                    hasContent
-                      ? { __html: sanitized }
-                      : { __html: "" }
-                  }
-                />
+                >
+                  {preview?.styleTexts.map((css, i) => (
+                    <style key={i} dangerouslySetInnerHTML={{ __html: css }} />
+                  ))}
+                  <div
+                    className={
+                      preview?.bodyClass
+                        ? `email-preview-body ${preview.bodyClass}`
+                        : "email-preview-body"
+                    }
+                    style={{
+                      width: "100%",
+                      minHeight: "100%",
+                      ...bodyStyleObj,
+                    }}
+                    dangerouslySetInnerHTML={
+                      hasContent && preview
+                        ? { __html: preview.bodyHtml }
+                        : { __html: "" }
+                    }
+                  />
+                </div>
               </div>
             </div>
           </div>
