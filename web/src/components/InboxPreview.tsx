@@ -1,40 +1,24 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState } from "react";
 import { GMAIL_BASE_SP, IOS_BASE_PT, LAYOUT } from "@/lib/inboxTypography";
 
 type Theme = "light" | "dark";
+type Platform = "iphone" | "android";
+type Client = "mail" | "gmail";
 
 export function InboxPreview(props: {
   sender: string;
   subject: string;
   preheader: string;
-  iphoneMailTheme: Theme;
-  iphoneGmailTheme: Theme;
-  androidMailTheme: Theme;
-  androidGmailTheme: Theme;
-  onIphoneMailThemeChange: (theme: Theme) => void;
-  onIphoneGmailThemeChange: (theme: Theme) => void;
-  onAndroidMailThemeChange: (theme: Theme) => void;
-  onAndroidGmailThemeChange: (theme: Theme) => void;
   iosScale: number;
   androidScale: number;
 }) {
-  const {
-    sender,
-    subject,
-    preheader,
-    iphoneMailTheme,
-    iphoneGmailTheme,
-    androidMailTheme,
-    androidGmailTheme,
-    onIphoneMailThemeChange,
-    onIphoneGmailThemeChange,
-    onAndroidMailThemeChange,
-    onAndroidGmailThemeChange,
-    iosScale,
-    androidScale,
-  } = props;
+  const { sender, subject, preheader, iosScale, androidScale } = props;
+
+  const [platform, setPlatform] = useState<Platform>("iphone");
+  const [client, setClient] = useState<Client>("mail");
+  const [theme, setTheme] = useState<Theme>("light");
 
   const iosType = {
     sender: IOS_BASE_PT.sender * iosScale,
@@ -43,6 +27,7 @@ export function InboxPreview(props: {
     preview: IOS_BASE_PT.preview * iosScale,
   };
 
+  /** Gmail row + Android Mail–style row (sp / fontScale). */
   const gmailType = {
     sender: GMAIL_BASE_SP.sender * androidScale,
     time: GMAIL_BASE_SP.time * androidScale,
@@ -50,141 +35,139 @@ export function InboxPreview(props: {
     preview: GMAIL_BASE_SP.preview * androidScale,
   };
 
+  const caption =
+    `${platform === "iphone" ? "iPhone" : "Android"} · ${client === "mail" ? "Mail" : "Gmail"} · ${theme === "light" ? "Ljus" : "Mörk"}`;
+
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <PreviewCard
-        title="iPhone Mail"
-        theme={iphoneMailTheme}
-        onThemeChange={onIphoneMailThemeChange}
-      >
-        <AppleMailMock
-          sender={sender}
-          subject={subject}
-          preheader={preheader}
-          theme={iphoneMailTheme}
-          width={LAYOUT.iphoneWidthPx}
-          avatarSize={LAYOUT.iosAvatarPx}
-          padding={LAYOUT.iosHorizontalPaddingPx}
-          gap={LAYOUT.iosAvatarGapPx}
-          type={iosType}
-          platform="ios"
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Segmented
+          label="Enhet"
+          value={platform}
+          onChange={setPlatform}
+          options={[
+            { value: "iphone" as const, label: "iPhone" },
+            { value: "android" as const, label: "Android" },
+          ]}
         />
-      </PreviewCard>
+        <Segmented
+          label="Klient"
+          value={client}
+          onChange={setClient}
+          options={[
+            { value: "mail" as const, label: "Mail" },
+            { value: "gmail" as const, label: "Gmail" },
+          ]}
+        />
+        <Segmented
+          label="Tema"
+          value={theme}
+          onChange={setTheme}
+          options={[
+            { value: "light" as const, label: "Ljus" },
+            { value: "dark" as const, label: "Mörk" },
+          ]}
+        />
+      </div>
 
-      <PreviewCard
-        title="iPhone Gmail"
-        theme={iphoneGmailTheme}
-        onThemeChange={onIphoneGmailThemeChange}
-      >
-        <GmailMock
-          sender={sender}
-          subject={subject}
-          preheader={preheader}
-          theme={iphoneGmailTheme}
-          width={LAYOUT.iphoneWidthPx}
-          textWidth={
-            LAYOUT.iphoneWidthPx -
-            LAYOUT.iosHorizontalPaddingPx * 2 -
-            LAYOUT.gmailAvatarPx -
-            LAYOUT.gmailAvatarGapPx
-          }
-          type={gmailType}
-        />
-      </PreviewCard>
+      <p className="text-center text-xs text-zinc-500">{caption}</p>
 
-      <PreviewCard
-        title="Android Mail"
-        theme={androidMailTheme}
-        onThemeChange={onAndroidMailThemeChange}
-      >
-        <AppleMailMock
-          sender={sender}
-          subject={subject}
-          preheader={preheader}
-          theme={androidMailTheme}
-          width={LAYOUT.gmailWidthDp}
-          avatarSize={LAYOUT.gmailAvatarPx}
-          padding={LAYOUT.gmailHorizontalPaddingPx}
-          gap={LAYOUT.gmailAvatarGapPx}
-          type={{
-            sender: GMAIL_BASE_SP.sender * androidScale,
-            time: GMAIL_BASE_SP.time * androidScale,
-            subject: GMAIL_BASE_SP.subject * androidScale,
-            preview: GMAIL_BASE_SP.preview * androidScale,
-          }}
-          platform="android"
-        />
-      </PreviewCard>
-
-      <PreviewCard
-        title="Android Gmail"
-        theme={androidGmailTheme}
-        onThemeChange={onAndroidGmailThemeChange}
-      >
-        <GmailMock
-          sender={sender}
-          subject={subject}
-          preheader={preheader}
-          theme={androidGmailTheme}
-          width={LAYOUT.gmailWidthDp}
-          textWidth={LAYOUT.gmailTextColumnPx}
-          type={gmailType}
-        />
-      </PreviewCard>
+      <div className="flex justify-center">
+        {client === "mail" ? (
+          <AppleMailMock
+            sender={sender}
+            subject={subject}
+            preheader={preheader}
+            theme={theme}
+            platform={platform === "iphone" ? "ios" : "android"}
+            width={
+              platform === "iphone"
+                ? LAYOUT.iphoneWidthPx
+                : LAYOUT.gmailWidthDp
+            }
+            avatarSize={
+              platform === "iphone"
+                ? LAYOUT.iosAvatarPx
+                : LAYOUT.gmailAvatarPx
+            }
+            padding={
+              platform === "iphone"
+                ? LAYOUT.iosHorizontalPaddingPx
+                : LAYOUT.gmailHorizontalPaddingPx
+            }
+            gap={
+              platform === "iphone"
+                ? LAYOUT.iosAvatarGapPx
+                : LAYOUT.gmailAvatarGapPx
+            }
+            type={platform === "iphone" ? iosType : gmailType}
+          />
+        ) : (
+          <GmailMock
+            sender={sender}
+            subject={subject}
+            preheader={preheader}
+            theme={theme}
+            width={
+              platform === "iphone"
+                ? LAYOUT.iphoneWidthPx
+                : LAYOUT.gmailWidthDp
+            }
+            textWidth={
+              platform === "iphone"
+                ? LAYOUT.iphoneWidthPx -
+                  LAYOUT.iosHorizontalPaddingPx * 2 -
+                  LAYOUT.gmailAvatarPx -
+                  LAYOUT.gmailAvatarGapPx
+                : LAYOUT.gmailTextColumnPx
+            }
+            type={gmailType}
+          />
+        )}
+      </div>
     </div>
   );
 }
 
-function PreviewCard({
-  title,
-  theme,
-  onThemeChange,
-  children,
-}: {
-  title: string;
-  theme: Theme;
-  onThemeChange: (theme: Theme) => void;
-  children: ReactNode;
-}) {
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold tracking-tight text-zinc-900">
-          {title}
-        </h2>
-        <ThemeToggle value={theme} onChange={onThemeChange} />
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function ThemeToggle({
+function Segmented<T extends string>({
+  label,
   value,
   onChange,
+  options,
 }: {
-  value: Theme;
-  onChange: (theme: Theme) => void;
+  label: string;
+  value: T;
+  onChange: (v: T) => void;
+  options: readonly { value: T; label: string }[];
 }) {
   return (
-    <div className="grid grid-cols-2 rounded-full bg-zinc-100 p-0.5">
-      {(["light", "dark"] as const).map((theme) => {
-        const active = theme === value;
-        return (
-          <button
-            key={theme}
-            type="button"
-            onClick={() => onChange(theme)}
-            className={
-              active
-                ? "rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold capitalize text-zinc-950 shadow-sm"
-                : "rounded-full px-2.5 py-1 text-[11px] font-medium capitalize text-zinc-500"
-            }
-          >
-            {theme}
-          </button>
-        );
-      })}
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+        {label}
+      </span>
+      <div
+        className="grid grid-cols-2 rounded-full bg-zinc-100 p-0.5"
+        role="group"
+        aria-label={label}
+      >
+        {options.map((o) => {
+          const active = o.value === value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => onChange(o.value)}
+              className={
+                active
+                  ? "rounded-full bg-white px-2.5 py-1.5 text-[11px] font-semibold text-zinc-950 shadow-sm"
+                  : "rounded-full px-2.5 py-1.5 text-[11px] font-medium text-zinc-500 transition hover:text-zinc-800"
+              }
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
