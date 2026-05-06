@@ -121,9 +121,24 @@ const FRAME_SCROLL: CSSProperties = {
 
 /**
  * Injected after campaign &lt;style&gt; blocks so it wins over mobile @media rules that set
- * footer td { display:block } when the browser viewport is narrow, and fixes CTA corner clipping.
+ * footer td { display:block } when the browser viewport is narrow, and fixes CTA client shims.
  */
 const EMAIL_PREVIEW_OVERRIDE_CSS = `
+[data-email-root] .sf-links .set-txt {
+  white-space: nowrap !important;
+}
+[data-email-root] .sf-links .set-txt a {
+  display: inline-block !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+}
+[data-email-root] .sf-links .set-txt a img {
+  display: inline-block !important;
+  vertical-align: middle !important;
+  width: 32px !important;
+  max-width: 32px !important;
+  height: 32px !important;
+}
 @media screen and (max-width: 600px) {
   [data-email-root] table.links-sm,
   [data-email-root] table[class*="links-sm"] {
@@ -146,6 +161,26 @@ const EMAIL_PREVIEW_OVERRIDE_CSS = `
     max-width: none !important;
     vertical-align: middle !important;
   }
+  [data-email-root] table.links-sm .set-txt,
+  [data-email-root] table[class*="links-sm"] .set-txt {
+    display: block !important;
+    white-space: nowrap !important;
+  }
+  [data-email-root] table.links-sm a,
+  [data-email-root] table[class*="links-sm"] a {
+    display: inline-block !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+  }
+  [data-email-root] table.links-sm img,
+  [data-email-root] table[class*="links-sm"] img,
+  [data-email-root] .sf-links a img {
+    display: inline-block !important;
+    vertical-align: middle !important;
+    width: 32px !important;
+    max-width: 32px !important;
+    height: 32px !important;
+  }
   [data-email-root] .sf-links table.links-i td,
   [data-email-root] table.links-i td {
     display: table-cell !important;
@@ -153,10 +188,24 @@ const EMAIL_PREVIEW_OVERRIDE_CSS = `
 }
 [data-email-root] table.cta-btn > tbody > tr > td {
   overflow: hidden !important;
+  border-color: transparent !important;
   box-sizing: border-box !important;
 }
 [data-email-root] table.cta-btn .fix-btn {
   overflow: hidden !important;
+}
+[data-email-root] table.cta-btn a {
+  box-sizing: border-box !important;
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+}
+[data-email-root] table.cta-btn a i {
+  display: none !important;
+  width: 0 !important;
+  max-width: 0 !important;
+  overflow: hidden !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
 }
 `.trim();
 
