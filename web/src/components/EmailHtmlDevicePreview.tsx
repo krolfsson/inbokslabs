@@ -15,8 +15,10 @@ import {
   stripDangerousCss,
 } from "@/lib/emailHtmlUtils";
 
-/** Full HTML preview artboard (typical email width). Inbox tabs still use 390px device mockups. */
-const W = 600;
+/** Default full-email artboard width (px). Inbox mockups stay at 390px device width. */
+const DEFAULT_PREVIEW_WIDTH = 600;
+const PREVIEW_WIDTH_MIN = 280;
+const PREVIEW_WIDTH_MAX = 1200;
 
 const EXPORT_SCALE = 3;
 
@@ -107,10 +109,9 @@ const FRAME_SCREEN: CSSProperties = {
   backgroundColor: "#ffffff",
 };
 
-const FRAME_SCROLL: CSSProperties = {
+const FRAME_SCROLL_BASE: CSSProperties = {
   overflow: "visible",
   overflowWrap: "anywhere",
-  width: W,
   minWidth: 0,
   minHeight: 420,
   backgroundColor: "#ffffff",
@@ -429,6 +430,11 @@ export function EmailHtmlDevicePreview({
   const [rawHtml, setRawHtml] = useState(SAMPLE_HTML);
   /** Folder or origin where relative <img src> paths resolve (e.g. https://cdn.example.com/campaign/). */
   const [assetBaseUrl, setAssetBaseUrl] = useState("");
+  const [previewWidth, setPreviewWidth] = useState(DEFAULT_PREVIEW_WIDTH);
+  /** Draft so multi-digit widths (e.g. 700) can be typed without per-keystroke clamping. */
+  const [previewWidthDraft, setPreviewWidthDraft] = useState(
+    String(DEFAULT_PREVIEW_WIDTH),
+  );
   const [preview, setPreview] = useState<PreviewPayload | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -436,6 +442,10 @@ export function EmailHtmlDevicePreview({
   const captureRootRef = useRef<HTMLDivElement>(null);
   const frameScreenRef = useRef<HTMLDivElement>(null);
   const emailInnerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setPreviewWidthDraft(String(previewWidth));
+  }, [previewWidth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -467,6 +477,17 @@ export function EmailHtmlDevicePreview({
   }, [rawHtml, assetBaseUrl]);
 
   const hasContent = (preview?.bodyHtml.length ?? 0) > 0;
+
+  const frameScrollStyle = useMemo(
+    () => ({
+      ...FRAME_SCROLL_BASE,
+      width: previewWidth,
+    }),
+    [previewWidth],
+  );
+
+  const clampPreviewWidth = (value: number) =>
+    Math.min(PREVIEW_WIDTH_MAX, Math.max(PREVIEW_WIDTH_MIN, value));
 
   const bodyStyleObj = useMemo(
     () => inlineStyleToObject(preview?.bodyStyle),
@@ -594,6 +615,17 @@ export function EmailHtmlDevicePreview({
     }
   }, [hasContent]);
 
+  const commitPreviewWidth = () => {
+    const n = Number.parseInt(previewWidthDraft.trim(), 10);
+    if (!Number.isFinite(n)) {
+      setPreviewWidthDraft(String(previewWidth));
+      return;
+    }
+    const clamped = clampPreviewWidth(n);
+    setPreviewWidth(clamped);
+    setPreviewWidthDraft(String(clamped));
+  };
+
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -674,13 +706,49 @@ export function EmailHtmlDevicePreview({
         </div>
 
         <div className="min-w-0 rounded-[30px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] sm:p-6">
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <span className="text-sm font-semibold tracking-tight text-zinc-900">
               Preview
             </span>
-            <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-500">
-              {W}px
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-xs text-zinc-500">
+                <span className="font-medium">Width</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={PREVIEW_WIDTH_MIN}
+                  max={PREVIEW_WIDTH_MAX}
+                  step={1}
+                  value={previewWidthDraft}
+                  onChange={(e) => setPreviewWidthDraft(e.target.value)}
+                  onBlur={commitPreviewWidth}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  className="w-[4.5rem] rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-right text-sm font-medium tabular-nums text-zinc-900 outline-none transition focus:border-zinc-300 focus:bg-white"
+                />
+                <span className="text-zinc-400">px</span>
+              </label>
+              <div className="hidden h-4 w-px bg-zinc-200 sm:block" aria-hidden />
+              <div className="flex flex-wrap gap-1">
+                {([600, 640, 700, 800] as const).map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    onClick={() => setPreviewWidth(w)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                      previewWidth === w
+                        ? "bg-zinc-900 text-white"
+                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                    }`}
+                  >
+                    {w}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="flex justify-center overflow-x-auto p-2">
             <div ref={captureRootRef} data-lith="frame" style={FRAME_OUTER}>
@@ -689,7 +757,7 @@ export function EmailHtmlDevicePreview({
                   ref={emailInnerRef}
                   data-lith="scroll"
                   data-email-root
-                  style={FRAME_SCROLL}
+                  style={frameScrollStyle}
                 >
                   {preview?.styleTexts.map((css, i) => (
                     <style key={i} dangerouslySetInnerHTML={{ __html: css }} />
