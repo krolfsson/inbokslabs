@@ -109,10 +109,7 @@ const FRAME_SCREEN: CSSProperties = {
 };
 
 const FRAME_SCROLL: CSSProperties = {
-  maxHeight: "min(72vh, 800px)",
-  overflowY: "auto",
-  /** Typical campaigns are 600px wide — allow horizontal scroll inside the device width. */
-  overflowX: "auto",
+  overflow: "visible",
   overflowWrap: "anywhere",
   width: W,
   minWidth: 0,
@@ -618,7 +615,7 @@ export function EmailHtmlDevicePreview({
               {W}px
             </span>
           </div>
-          <div className="flex max-h-[min(74vh,880px)] justify-center overflow-auto pb-2">
+          <div className="flex max-h-[min(74vh,880px)] justify-center overflow-auto p-2">
             <div ref={captureRootRef} data-lith="frame" style={FRAME_OUTER}>
               <div ref={frameScreenRef} data-lith="screen" style={FRAME_SCREEN}>
                 <div
