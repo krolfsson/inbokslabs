@@ -111,9 +111,11 @@ const FRAME_SCREEN: CSSProperties = {
 const FRAME_SCROLL: CSSProperties = {
   maxHeight: "min(72vh, 800px)",
   overflowY: "auto",
-  overflowX: "hidden",
+  /** Typical campaigns are 600px wide — allow horizontal scroll inside the device width. */
+  overflowX: "auto",
   overflowWrap: "anywhere",
   width: W,
+  minWidth: 0,
   boxSizing: "border-box",
 };
 
@@ -144,6 +146,7 @@ export function EmailHtmlDevicePreview({
   const [exportError, setExportError] = useState<string | null>(null);
 
   const captureRootRef = useRef<HTMLDivElement>(null);
+  const frameScreenRef = useRef<HTMLDivElement>(null);
   const emailInnerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -184,9 +187,27 @@ export function EmailHtmlDevicePreview({
       });
     });
 
+  /** Let remote images decode before rasterizing (avoids empty / black regions in PNG). */
+  const waitForImages = (root: HTMLElement) =>
+    Promise.all(
+      Array.from(root.querySelectorAll("img")).map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) {
+              resolve();
+              return;
+            }
+            const done = () => resolve();
+            img.addEventListener("load", done, { once: true });
+            img.addEventListener("error", done, { once: true });
+          }),
+      ),
+    );
+
   const savePng = useCallback(async () => {
     const root = captureRootRef.current;
     const inner = emailInnerRef.current;
+    const screen = frameScreenRef.current;
     if (!root || !inner || !hasContent) return;
 
     setExporting(true);
@@ -194,29 +215,45 @@ export function EmailHtmlDevicePreview({
 
     const prevH = inner.style.height;
     const prevMinH = inner.style.minHeight;
-    const prevOverflow = inner.style.overflow;
+    const prevOverflowX = inner.style.overflowX;
+    const prevOverflowY = inner.style.overflowY;
     const prevMaxH = inner.style.maxHeight;
+    const prevScreenOv = screen?.style.overflow;
 
     try {
+      if (screen) screen.style.overflow = "visible";
+
       const h = inner.scrollHeight;
       inner.style.height = `${h}px`;
       inner.style.minHeight = `${h}px`;
       inner.style.maxHeight = "none";
-      inner.style.overflow = "visible";
+      inner.style.removeProperty("overflow");
+      inner.style.overflowX = "visible";
+      inner.style.overflowY = "visible";
 
       await flushLayout();
+      await waitForImages(inner);
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        try {
+          await document.fonts.ready;
+        } catch {
+          /* ignore */
+        }
+      }
+      await flushLayout();
 
+      /**
+       * `foreignObjectRendering: true` often yields a fully black/blank PNG in Chromium.
+       * Omit explicit width/height/window* — wrong values prevent painting. Color strips in onclone
+       * keep the default (non-FO) path compatible with email CSS.
+       */
       const canvas = await html2canvas(root, {
         scale: EXPORT_SCALE,
         useCORS: true,
         logging: false,
         backgroundColor: "#1c1c1e",
-        width: root.scrollWidth,
-        height: root.scrollHeight,
-        windowWidth: root.scrollWidth,
-        windowHeight: root.scrollHeight,
-        foreignObjectRendering: true,
-        imageTimeout: 15000,
+        foreignObjectRendering: false,
+        imageTimeout: 20000,
         onclone: (clonedDoc) => {
           sanitizeClonedDocumentForHtml2Canvas(clonedDoc);
         },
@@ -248,7 +285,10 @@ export function EmailHtmlDevicePreview({
       inner.style.height = prevH;
       inner.style.minHeight = prevMinH;
       inner.style.maxHeight = prevMaxH;
-      inner.style.overflow = prevOverflow;
+      inner.style.removeProperty("overflow");
+      inner.style.overflowX = prevOverflowX || "auto";
+      inner.style.overflowY = prevOverflowY || "auto";
+      if (screen) screen.style.overflow = prevScreenOv ?? "";
       setExporting(false);
     }
   }, [hasContent]);
@@ -364,10 +404,12 @@ export function EmailHtmlDevicePreview({
             {preview?.styleTexts.length
               ? `${preview.styleTexts.length} &lt;style&gt; block(s) applied`
               : "no document styles (fragment only)"}
+            {" "}
+            · scroll sideways for 600px layouts
           </p>
           <div className="flex max-h-[min(78vh,880px)] justify-center overflow-auto pb-2">
             <div ref={captureRootRef} data-lith="frame" style={FRAME_OUTER}>
-              <div data-lith="screen" style={FRAME_SCREEN}>
+              <div ref={frameScreenRef} data-lith="screen" style={FRAME_SCREEN}>
                 <div
                   ref={emailInnerRef}
                   data-lith="scroll"

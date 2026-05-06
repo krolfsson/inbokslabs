@@ -14,18 +14,25 @@ body {
   color: #18181b;
 }
 
-/* Pasted email HTML preview (narrow column, client-only iframe substitute) */
-.email-preview-root {
+/* Pasted email HTML preview — attribute hooks avoid Tailwind class noise in html2canvas */
+[data-email-root] {
   -webkit-text-size-adjust: 100%;
+  /* Allow shrinking inside fixed device width; wide tables scroll horizontally instead of clipping only */
+  min-width: 0;
 }
 
-.email-preview-root img,
+[data-email-root] .email-preview-body {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+[data-email-root] img,
 .email-preview-body img {
   max-width: 100% !important;
   height: auto !important;
 }
 
-.email-preview-root table,
+[data-email-root] table,
 .email-preview-body table {
   border-collapse: collapse;
 }
