@@ -18,17 +18,17 @@ export function TextSizeControl({ value, onChange }: Props) {
   const sizeLabel = labelAtStep(value);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-400">
+        <span className="text-xs font-medium text-zinc-500">
           Text size
         </span>
-        <span className="text-[10px] tabular-nums text-zinc-500">
+        <span className="text-xs tabular-nums text-zinc-500">
           {sizeLabel}
         </span>
       </div>
       <div
-        className="relative rounded-full bg-zinc-100 p-1"
+        className="relative rounded-full bg-zinc-200/70 p-1"
         role="slider"
         aria-valuemin={0}
         aria-valuemax={6}
@@ -46,7 +46,7 @@ export function TextSizeControl({ value, onChange }: Props) {
           }
         }}
       >
-        <div className="pointer-events-none absolute left-3 right-3 top-1/2 h-2 -translate-y-1/2 rounded-full bg-zinc-200/90" />
+        <div className="pointer-events-none absolute left-3 right-3 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-zinc-300/60" />
         <div className="relative z-[1] flex">
           {TEXT_SIZE_STEP_SHORT.map((abbr, i) => {
             const active = i === value;
@@ -63,7 +63,7 @@ export function TextSizeControl({ value, onChange }: Props) {
                   <span
                     className={
                       active
-                        ? "size-4 shrink-0 rounded-full border-2 border-white bg-[#ff5c47] shadow-md ring-2 ring-[#ff5c47]/20"
+                        ? "size-4 shrink-0 rounded-full border-2 border-white bg-zinc-950 shadow-md"
                         : "size-1.5 shrink-0 rounded-full bg-zinc-400/80"
                     }
                   />
@@ -71,7 +71,7 @@ export function TextSizeControl({ value, onChange }: Props) {
                 <span
                   className={
                     active
-                      ? "text-[9px] font-semibold tabular-nums text-[#ff5c47]"
+                      ? "text-[9px] font-semibold tabular-nums text-zinc-950"
                       : "text-[9px] font-medium tabular-nums text-zinc-400 hover:text-zinc-600"
                   }
                 >
@@ -82,9 +82,6 @@ export function TextSizeControl({ value, onChange }: Props) {
           })}
         </div>
       </div>
-      <p className="text-[10px] leading-snug text-zinc-400">
-        iOS Dynamic Type steps · tap or arrow keys
-      </p>
     </div>
   );
 }

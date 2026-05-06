@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
-import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -39,8 +38,7 @@ export default function RootLayout({
       lang="en"
       className={`${dmSans.variable} ${fraunces.variable} h-full scroll-smooth antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-zinc-50 text-zinc-900">
-        <SiteHeader />
+      <body className="flex min-h-full flex-col bg-[#f5f5f7] text-zinc-950">
         <div className="flex flex-1 flex-col">{children}</div>
       </body>
     </html>

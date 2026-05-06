@@ -347,108 +347,82 @@ export function EmailHtmlDevicePreview({
   };
 
   return (
-    <section className={embedded ? "space-y-8" : "mt-12 space-y-8 border-t border-zinc-200 pt-12"}>
-      {!embedded ? (
-        <header className="max-w-2xl space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#ff5c47]">
-            Full email
-          </p>
-          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">
-            HTML on iPhone (no status bar)
-          </h2>
-          <p className="text-sm text-zinc-600">
-            Paste <strong>full HTML</strong> or a Gmail / Apple Mail{" "}
-            <strong>&quot;raw source&quot;</strong> / .eml (headers + MIME parts); we pick{" "}
-            <code className="rounded bg-zinc-100 px-1 text-[13px]">text/html</code>, decode quoted-printable/base64, then render.{" "}
-            Images need a{" "}
-            <strong>real URL</strong> the browser can load: <strong>relative</strong> paths (
-            <code className="text-[13px]">/img.png</code>,{" "}
-            <code className="text-[13px]">assets/x.jpg</code>) resolve against your site (
-            <code className="text-[13px]">localhost</code>) and 404 unless you set{" "}
-            <strong>asset base</strong> below. <code className="text-[13px]">cid:</code>{" "}
-            attachments do not work in a web preview. <strong>HTTP</strong> images on an{" "}
-            <strong>HTTPS</strong> page are blocked. PNG export still needs{" "}
-            <strong>CORS</strong> on remote images to paint into the canvas.
-          </p>
-        </header>
-      ) : (
-        <p className="max-w-2xl text-[12px] leading-relaxed text-zinc-500">
-          HTML or raw .eml (we extract <code className="rounded bg-zinc-100 px-1">text/html</code>).
-          Full HTML + <code className="rounded bg-zinc-100 px-1">&lt;style&gt;</code> in head.
-          Relative <code className="rounded bg-zinc-100 px-1">src</code> → set asset base.{" "}
-          <code className="rounded bg-zinc-100 px-1">cid:</code> no. PNG needs CORS on images.
-        </p>
-      )}
-
-      <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
-        <div className="space-y-4">
-          <label className="block space-y-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-              Asset base URL (fixes relative images)
-            </span>
-            <input
-              type="url"
-              value={assetBaseUrl}
-              onChange={(e) => setAssetBaseUrl(e.target.value)}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 shadow-sm outline-none placeholder:text-zinc-400 focus:border-[#ff5c47]/40 focus:ring-2 focus:ring-[#ff5c47]/20"
-              placeholder="https://your-cdn.com/path/to/email-folder/"
-            />
-            <p className="text-[11px] text-zinc-500">
-              Use the folder your images live under, often with a trailing slash. Required
-              if HTML uses relative <code className="font-mono text-[11px]">src=</code>{" "}
-              paths.
+    <section className={embedded ? "" : "mt-12"}>
+      <div className="grid gap-8 lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-10">
+        <div className="rounded-[30px] bg-zinc-50/90 p-5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
+          <div className="mb-6">
+            <h2 className="text-2xl font-semibold tracking-[-0.035em] text-zinc-950">
+              Email preview
+            </h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Paste HTML or a raw email.
             </p>
-          </label>
-
-          <label className="block space-y-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-              Email HTML
-            </span>
-            <textarea
-              value={rawHtml}
-              onChange={(e) => setRawHtml(e.target.value)}
-              spellCheck={false}
-              className="textarea-email-html h-[min(320px,42vh)] w-full resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-[13px] leading-relaxed text-zinc-800 shadow-sm outline-none focus:border-[#ff5c47]/40 focus:ring-2 focus:ring-[#ff5c47]/20"
-              placeholder="Full HTML, body only, or raw message source (.eml) with headers…"
-            />
-          </label>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 shadow-sm transition hover:border-zinc-300">
-              <input
-                type="file"
-                accept=".html,.htm,text/html,.txt"
-                className="sr-only"
-                onChange={onFile}
-              />
-              Upload .html
-            </label>
-            <button
-              type="button"
-              disabled={!hasContent || exporting}
-              onClick={savePng}
-              className="inline-flex items-center justify-center rounded-xl bg-[#ff5c47] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#e54a38] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {exporting ? "Saving PNG…" : `Save PNG (${EXPORT_SCALE}×)`}
-            </button>
           </div>
-          {exportError ? (
-            <p className="text-sm text-red-600" role="alert">
-              {exportError}
-            </p>
-          ) : null}
+
+          <div className="space-y-4">
+            <label className="block space-y-2">
+              <span className="text-xs font-medium text-zinc-500">
+                Email
+              </span>
+              <textarea
+                value={rawHtml}
+                onChange={(e) => setRawHtml(e.target.value)}
+                spellCheck={false}
+                className="textarea-email-html h-[min(430px,54vh)] w-full resize-none rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]"
+                placeholder="Paste HTML or .eml source"
+              />
+            </label>
+
+            <label className="block space-y-2">
+              <span className="text-xs font-medium text-zinc-500">
+                Image base URL
+              </span>
+              <input
+                type="url"
+                value={assetBaseUrl}
+                onChange={(e) => setAssetBaseUrl(e.target.value)}
+                className="w-full rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 text-[15px] text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]"
+                placeholder="Optional"
+              />
+            </label>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-semibold text-zinc-950 shadow-[0_1px_10px_rgba(0,0,0,0.08)] transition hover:bg-zinc-50">
+                <input
+                  type="file"
+                  accept=".html,.htm,.eml,text/html,.txt"
+                  className="sr-only"
+                  onChange={onFile}
+                />
+                Upload
+              </label>
+              <button
+                type="button"
+                disabled={!hasContent || exporting}
+                onClick={savePng}
+                className="inline-flex h-11 items-center justify-center rounded-full bg-zinc-950 px-5 text-sm font-semibold text-white shadow-[0_1px_10px_rgba(0,0,0,0.16)] transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {exporting ? "Saving…" : "Save PNG"}
+              </button>
+            </div>
+            {exportError ? (
+              <p className="text-sm text-red-600" role="alert">
+                {exportError}
+              </p>
+            ) : null}
+          </div>
         </div>
 
-        <div className="flex flex-col items-center gap-3 lg:items-end">
-          <p className="w-full text-center text-[11px] text-zinc-500 lg:text-right">
-            {W}px wide ·&nbsp;
-            {preview?.styleTexts.length
-              ? `${preview.styleTexts.length} &lt;style&gt; block(s) applied`
-              : "no document styles (fragment only)"}
-            {" "}
-            · scroll if the design is wider than the frame
-          </p>
-          <div className="flex max-h-[min(78vh,880px)] justify-center overflow-auto pb-2">
+        <div className="min-w-0 rounded-[30px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] sm:p-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold tracking-tight text-zinc-900">
+              Preview
+            </span>
+            <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-500">
+              {W}px
+            </span>
+          </div>
+          <div className="flex max-h-[min(74vh,880px)] justify-center overflow-auto pb-2">
             <div ref={captureRootRef} data-lith="frame" style={FRAME_OUTER}>
               <div ref={frameScreenRef} data-lith="screen" style={FRAME_SCREEN}>
                 <div

@@ -43,23 +43,19 @@ export function InboxPreview(props: {
       : "bg-white text-[#202124] border-[#e0e0e0]";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="grid gap-6 xl:grid-cols-2">
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
-            iPhone (Mail)
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-900">
+            iPhone Mail
           </h2>
-          <span className="text-[10px] tabular-nums text-zinc-400">
+          <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs tabular-nums text-zinc-500">
             {iosTheme === "dark" ? "Dark" : "Light"}
           </span>
         </div>
-        <p className="text-[10px] leading-snug text-zinc-400">
-          {LAYOUT.iphoneWidthPx}px canvas · {LAYOUT.iosTextColumnPx}px text column · SF
-          Pro–driven sizes × Dynamic Type
-        </p>
 
         <div
-          className={`mx-auto overflow-hidden rounded-[18px] border border-black/10 shadow-lg shadow-zinc-900/10 ${iosBg}`}
+          className={`mx-auto overflow-hidden rounded-[26px] border border-black/10 shadow-[0_18px_50px_rgba(0,0,0,0.10)] ${iosBg}`}
           style={{ width: LAYOUT.iphoneWidthPx, maxWidth: "100%" }}
         >
           <div className="border-b border-white/10 bg-black/10 px-4 py-2 text-center font-medium tracking-wide text-zinc-500">
@@ -149,20 +145,16 @@ export function InboxPreview(props: {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
-            Android (Gmail)
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-900">
+            Gmail
           </h2>
-          <span className="text-[10px] tabular-nums text-zinc-400">
+          <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs tabular-nums text-zinc-500">
             {gmailTheme === "dark" ? "Dark" : "Light"}
           </span>
         </div>
-        <p className="text-[10px] leading-snug text-zinc-400">
-          {LAYOUT.gmailWidthDp}dp canvas · {LAYOUT.gmailTextColumnPx}px text column · Roboto
-          @ sp × fontScale
-        </p>
 
         <div
-          className={`mx-auto overflow-hidden rounded-[18px] border border-black/10 shadow-lg shadow-zinc-900/10 ${gmailBg}`}
+          className={`mx-auto overflow-hidden rounded-[26px] border border-black/10 shadow-[0_18px_50px_rgba(0,0,0,0.10)] ${gmailBg}`}
           style={{ width: LAYOUT.gmailWidthDp, maxWidth: "100%" }}
         >
           <div

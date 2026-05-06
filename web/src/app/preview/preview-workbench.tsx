@@ -7,12 +7,17 @@ import { TextSizeControl } from "@/components/TextSizeControl";
 import { scalesAtStep } from "@/lib/inboxTypography";
 
 const field =
-  "w-full rounded-lg border border-zinc-200/90 bg-white px-3 py-2 text-sm text-zinc-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5";
+  "w-full rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 text-[15px] text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]";
 
 const select =
-  "w-full rounded-lg border border-zinc-200/90 bg-white px-3 py-2 text-sm text-zinc-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5";
+  "w-full rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 text-[15px] text-zinc-950 outline-none transition focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]";
 
 type TabId = "inbox" | "email";
+
+const tabs: { id: TabId; label: string }[] = [
+  { id: "inbox", label: "Inbox" },
+  { id: "email", label: "Email" },
+];
 
 export function PreviewWorkbench() {
   const [tab, setTab] = useState<TabId>("inbox");
@@ -39,188 +44,172 @@ export function PreviewWorkbench() {
   );
 
   return (
-    <div className="mx-auto max-w-[1200px]">
-      <div className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        {/* Binder / tab rail */}
-        <div className="flex items-stretch border-b border-zinc-100 bg-zinc-50/80">
-          <div
-            className="flex items-center gap-1.5 border-r border-zinc-100 px-4 py-3"
-            aria-hidden
-          >
-            {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                className="h-2 w-2 rounded-full bg-zinc-300/90 ring-1 ring-zinc-200/80"
-              />
-            ))}
-          </div>
-          <div role="tablist" className="flex min-w-0 flex-1">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "inbox"}
-              id="tab-inbox"
-              onClick={() => setTab("inbox")}
-              className={
-                tab === "inbox"
-                  ? "relative flex-1 border-b-2 border-b-[#ff5c47] bg-white px-5 py-3.5 text-left text-sm font-semibold text-zinc-900"
-                  : "flex-1 border-b-2 border-b-transparent px-5 py-3.5 text-left text-sm font-medium text-zinc-500 transition hover:bg-white/60 hover:text-zinc-700"
-              }
-            >
-              Inbox lines
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "email"}
-              id="tab-email"
-              onClick={() => setTab("email")}
-              className={
-                tab === "email"
-                  ? "relative flex-1 border-b-2 border-b-[#ff5c47] bg-white px-5 py-3.5 text-left text-sm font-semibold text-zinc-900"
-                  : "flex-1 border-b-2 border-b-transparent px-5 py-3.5 text-left text-sm font-medium text-zinc-500 transition hover:bg-white/60 hover:text-zinc-700"
-              }
-            >
-              Full email HTML
-            </button>
-          </div>
+    <section className="relative overflow-hidden rounded-[38px] border border-white/70 bg-white/75 shadow-[0_40px_120px_rgba(0,0,0,0.10)] backdrop-blur-xl">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white"
+      />
+
+      <div className="flex items-center justify-between gap-4 border-b border-zinc-200/70 px-5 py-4 sm:px-6">
+        <div className="flex items-center gap-2" aria-hidden>
+          <span className="size-3 rounded-full bg-[#ff5f57]" />
+          <span className="size-3 rounded-full bg-[#ffbd2e]" />
+          <span className="size-3 rounded-full bg-[#28c840]" />
         </div>
+        <div
+          role="tablist"
+          aria-label="Preview mode"
+          className="mx-auto grid w-full max-w-xs grid-cols-2 rounded-full bg-zinc-100 p-1"
+        >
+          {tabs.map((item) => {
+            const active = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                id={`tab-${item.id}`}
+                onClick={() => setTab(item.id)}
+                className={
+                  active
+                    ? "rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 shadow-[0_1px_8px_rgba(0,0,0,0.10)]"
+                    : "rounded-full px-4 py-2 text-sm font-medium text-zinc-500 transition hover:text-zinc-950"
+                }
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="w-[52px]" aria-hidden />
+      </div>
 
-        <div className="p-6 sm:p-8">
-          <div
-            role="tabpanel"
-            aria-labelledby="tab-inbox"
-            hidden={tab !== "inbox"}
-            className={tab !== "inbox" ? "hidden" : ""}
-          >
-            <div className="mb-8 max-w-xl">
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-                Subject &amp; preheader
-              </h1>
-              <p className="mt-1 text-sm text-zinc-500">
-                iPhone Mail and Gmail rows · fixed widths · ellipsis like real inbox
-              </p>
-            </div>
-            <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-12">
-              <div className="min-w-0 space-y-6">
-                <div className="space-y-4">
-                  <label className="block space-y-1.5">
-                    <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-400">
-                      Sender
+      <div className="p-5 sm:p-6 lg:p-8">
+        <div
+          role="tabpanel"
+          aria-labelledby="tab-inbox"
+          hidden={tab !== "inbox"}
+          className={tab !== "inbox" ? "hidden" : ""}
+        >
+          <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-10">
+            <div className="rounded-[30px] bg-zinc-50/90 p-5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold tracking-[-0.035em] text-zinc-950">
+                  Inbox preview
+                </h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Write the line. See the inbox.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <label className="block space-y-2">
+                  <span className="text-xs font-medium text-zinc-500">
+                    From
+                  </span>
+                  <input
+                    value={sender}
+                    onChange={(e) => setSender(e.target.value)}
+                    className={field}
+                    placeholder="Brand name"
+                  />
+                </label>
+
+                <label className="block space-y-2">
+                  <span className="flex items-center justify-between text-xs font-medium text-zinc-500">
+                    Subject
+                    <span className="font-mono text-[11px] font-normal text-zinc-400">
+                      {counts.subject}
                     </span>
-                    <input
-                      value={sender}
-                      onChange={(e) => setSender(e.target.value)}
-                      className={field}
-                      placeholder="Name or brand"
-                    />
-                  </label>
+                  </span>
+                  <input
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className={field}
+                  />
+                </label>
 
+                <label className="block space-y-2">
+                  <span className="flex items-center justify-between text-xs font-medium text-zinc-500">
+                    Preheader
+                    <span className="font-mono text-[11px] font-normal text-zinc-400">
+                      {counts.preheader}
+                    </span>
+                  </span>
+                  <textarea
+                    value={preheader}
+                    onChange={(e) => setPreheader(e.target.value)}
+                    rows={4}
+                    className={`${field} resize-none`}
+                  />
+                </label>
+
+                <div className="pt-1">
                   <TextSizeControl
                     value={textStep}
                     onChange={setTextStep}
                   />
+                </div>
 
-                  <p className="text-[10px] text-zinc-400">
-                    iOS ×{iosScale.toFixed(3)} · Android ×{androidScale.toFixed(3)}
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="block space-y-1.5">
-                      <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-400">
-                        iPhone
-                      </span>
-                      <select
-                        value={iosTheme}
-                        onChange={(e) =>
-                          setIosTheme(e.target.value as "light" | "dark")
-                        }
-                        className={select}
-                      >
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                      </select>
-                    </label>
-                    <label className="block space-y-1.5">
-                      <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-400">
-                        Gmail
-                      </span>
-                      <select
-                        value={gmailTheme}
-                        onChange={(e) =>
-                          setGmailTheme(e.target.value as "light" | "dark")
-                        }
-                        className={select}
-                      >
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <label className="block space-y-1.5">
-                    <span className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-400">
-                      Subject
-                      <span className="font-mono text-[9px] font-normal normal-case text-zinc-400">
-                        {counts.subject}
-                      </span>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <label className="block space-y-2">
+                    <span className="text-xs font-medium text-zinc-500">
+                      iPhone
                     </span>
-                    <input
-                      value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
-                      className={field}
-                    />
+                    <select
+                      value={iosTheme}
+                      onChange={(e) =>
+                        setIosTheme(e.target.value as "light" | "dark")
+                      }
+                      className={select}
+                    >
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
                   </label>
-
-                  <label className="block space-y-1.5">
-                    <span className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-400">
-                      Preheader
-                      <span className="font-mono text-[9px] font-normal normal-case text-zinc-400">
-                        {counts.preheader}
-                      </span>
+                  <label className="block space-y-2">
+                    <span className="text-xs font-medium text-zinc-500">
+                      Gmail
                     </span>
-                    <textarea
-                      value={preheader}
-                      onChange={(e) => setPreheader(e.target.value)}
-                      rows={3}
-                      className={`${field} resize-y py-2.5`}
-                    />
+                    <select
+                      value={gmailTheme}
+                      onChange={(e) =>
+                        setGmailTheme(e.target.value as "light" | "dark")
+                      }
+                      className={select}
+                    >
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
                   </label>
                 </div>
               </div>
-
-              <div className="mt-10 min-w-0 lg:mt-0">
-                <InboxPreview
-                  sender={sender}
-                  subject={subject}
-                  preheader={preheader}
-                  iosTheme={iosTheme}
-                  gmailTheme={gmailTheme}
-                  iosScale={iosScale}
-                  androidScale={androidScale}
-                />
-              </div>
             </div>
-          </div>
 
-          <div
-            role="tabpanel"
-            aria-labelledby="tab-email"
-            hidden={tab !== "email"}
-            className={tab !== "email" ? "hidden" : ""}
-          >
-            <div className="mb-6 max-w-xl">
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-                HTML in phone frame
-              </h1>
-              <p className="mt-1 text-sm text-zinc-500">
-                Paste code · optional asset base for relative images · save PNG
-              </p>
+            <div className="min-w-0 rounded-[30px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] sm:p-6">
+              <InboxPreview
+                sender={sender}
+                subject={subject}
+                preheader={preheader}
+                iosTheme={iosTheme}
+                gmailTheme={gmailTheme}
+                iosScale={iosScale}
+                androidScale={androidScale}
+              />
             </div>
-            <EmailHtmlDevicePreview embedded />
           </div>
         </div>
+
+        <div
+          role="tabpanel"
+          aria-labelledby="tab-email"
+          hidden={tab !== "email"}
+          className={tab !== "email" ? "hidden" : ""}
+        >
+          <EmailHtmlDevicePreview embedded />
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
