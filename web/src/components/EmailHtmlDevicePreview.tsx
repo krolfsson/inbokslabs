@@ -365,6 +365,63 @@ function scopeEmailCss(css: string): string {
   return out;
 }
 
+function proxiedAssetUrl(src: string): string {
+  const trimmed = src.trim();
+  if (!/^https?:\/\//i.test(trimmed)) return src;
+  if (typeof window !== "undefined") {
+    try {
+      const u = new URL(trimmed);
+      if (u.origin === window.location.origin && u.pathname === "/api/image") {
+        return src;
+      }
+    } catch {
+      return src;
+    }
+  }
+  return `/api/image?url=${encodeURIComponent(trimmed)}`;
+}
+
+function proxySrcset(srcset: string): string {
+  return srcset
+    .split(",")
+    .map((piece) => {
+      const part = piece.trim();
+      const lastSpace = part.lastIndexOf(" ");
+      const descriptor = lastSpace > 0 ? part.slice(lastSpace + 1).trim() : "";
+      const hasDescriptor =
+        /^\d+(\.\d+)?x$/i.test(descriptor) || /^\d+w$/i.test(descriptor);
+      if (!hasDescriptor) return proxiedAssetUrl(part);
+      return `${proxiedAssetUrl(part.slice(0, lastSpace).trim())} ${descriptor}`;
+    })
+    .join(", ");
+}
+
+function proxyRemoteImages(html: string): string {
+  if (!html.trim() || typeof DOMParser === "undefined") return html;
+
+  const doc = new DOMParser().parseFromString(
+    `<!DOCTYPE html><html><body><div data-proxy-root>${html}</div></body></html>`,
+    "text/html",
+  );
+  const root = doc.querySelector("[data-proxy-root]");
+  if (!root) return html;
+
+  root.querySelectorAll("img[src]").forEach((img) => {
+    const src = img.getAttribute("src");
+    if (src) img.setAttribute("src", proxiedAssetUrl(src));
+  });
+  root.querySelectorAll("source[src]").forEach((source) => {
+    const src = source.getAttribute("src");
+    if (src) source.setAttribute("src", proxiedAssetUrl(src));
+  });
+  root.querySelectorAll("img[srcset], source[srcset]").forEach((el) => {
+    const srcset = el.getAttribute("srcset");
+    if (srcset) el.setAttribute("srcset", proxySrcset(srcset));
+  });
+
+  return root.innerHTML;
+}
+
 export function EmailHtmlDevicePreview({
   embedded = false,
 }: {
@@ -389,7 +446,10 @@ export function EmailHtmlDevicePreview({
         parsed.bodyHtml,
         assetBaseUrl,
       );
-      const cleanBody = DOMPurify.sanitize(withUrls, PURIFY_BODY);
+      const cleanBody = DOMPurify.sanitize(
+        proxyRemoteImages(withUrls),
+        PURIFY_BODY,
+      );
       const styleTexts = parsed.styleTexts.map((css) =>
         scopeEmailCss(stripDangerousCss(css)),
       );
@@ -476,17 +536,12 @@ export function EmailHtmlDevicePreview({
       }
       await flushLayout();
 
-      /**
-       * `foreignObjectRendering: true` often yields a fully black/blank PNG in Chromium.
-       * Omit explicit width/height/window* — wrong values prevent painting. Color strips in onclone
-       * keep the default (non-FO) path compatible with email CSS.
-       */
       const canvas = await html2canvas(root, {
         scale: EXPORT_SCALE,
         useCORS: true,
         logging: false,
         backgroundColor: "#1c1c1e",
-        foreignObjectRendering: false,
+        foreignObjectRendering: true,
         imageTimeout: 20000,
         onclone: (clonedDoc) => {
           sanitizeClonedDocumentForHtml2Canvas(clonedDoc);
