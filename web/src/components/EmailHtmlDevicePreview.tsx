@@ -109,6 +109,25 @@ const EXPORT_BG: Record<"light" | "dark", string> = {
 };
 
 /**
+ * Simulate “dark content” while keeping pasted campaign HTML untouched: invert the whole render,
+ * then apply the inverse transform again on raster/SVG/media so logos and photos stay natural.
+ */
+const EMAIL_PREVIEW_DARK_CONTENT_CSS = `
+[data-email-root][data-surface="dark"] .email-preview-body {
+  filter: invert(90.5%) hue-rotate(178deg) brightness(1.06) contrast(1.03) !important;
+  -webkit-filter: invert(90.5%) hue-rotate(178deg) brightness(1.06) contrast(1.03) !important;
+}
+
+[data-email-root][data-surface="dark"] .email-preview-body img,
+[data-email-root][data-surface="dark"] .email-preview-body picture img,
+[data-email-root][data-surface="dark"] .email-preview-body video,
+[data-email-root][data-surface="dark"] .email-preview-body svg {
+  filter: invert(90.5%) hue-rotate(178deg) brightness(1.06) contrast(1.03) !important;
+  -webkit-filter: invert(90.5%) hue-rotate(178deg) brightness(1.06) contrast(1.03) !important;
+}
+`.trim();
+
+/**
  * Injected after campaign &lt;style&gt; blocks so it wins over mobile @media rules that set
  * footer td { display:block } when the browser viewport is narrow, and fixes CTA client shims.
  */
@@ -847,6 +866,7 @@ export function EmailHtmlDevicePreview({
                   ref={emailInnerRef}
                   data-lith="scroll"
                   data-email-root
+                  data-surface={surfaceTheme}
                   style={frameScrollStyle}
                 >
                   {preview?.styleTexts.map((css, i) => (
@@ -857,6 +877,13 @@ export function EmailHtmlDevicePreview({
                       __html: stripDangerousCss(EMAIL_PREVIEW_OVERRIDE_CSS),
                     }}
                   />
+                  {surfaceTheme === "dark" ? (
+                    <style
+                      dangerouslySetInnerHTML={{
+                        __html: stripDangerousCss(EMAIL_PREVIEW_DARK_CONTENT_CSS),
+                      }}
+                    />
+                  ) : null}
                   <div
                     className={
                       preview?.bodyClass
