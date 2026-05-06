@@ -119,6 +119,47 @@ const FRAME_SCROLL: CSSProperties = {
   boxSizing: "border-box",
 };
 
+/**
+ * Injected after campaign &lt;style&gt; blocks so it wins over mobile @media rules that set
+ * footer td { display:block } when the browser viewport is narrow, and fixes CTA corner clipping.
+ */
+const EMAIL_PREVIEW_OVERRIDE_CSS = `
+@media screen and (max-width: 600px) {
+  [data-email-root] table.links-sm,
+  [data-email-root] table[class*="links-sm"] {
+    display: table !important;
+    width: auto !important;
+    max-width: 100% !important;
+  }
+  [data-email-root] table.links-sm tbody,
+  [data-email-root] table[class*="links-sm"] tbody {
+    display: table-row-group !important;
+  }
+  [data-email-root] table.links-sm tr,
+  [data-email-root] table[class*="links-sm"] tr {
+    display: table-row !important;
+  }
+  [data-email-root] table.links-sm td,
+  [data-email-root] table[class*="links-sm"] td {
+    display: table-cell !important;
+    width: auto !important;
+    max-width: none !important;
+    vertical-align: middle !important;
+  }
+  [data-email-root] .sf-links table.links-i td,
+  [data-email-root] table.links-i td {
+    display: table-cell !important;
+  }
+}
+[data-email-root] table.cta-btn > tbody > tr > td {
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+[data-email-root] table.cta-btn .fix-btn {
+  overflow: hidden !important;
+}
+`.trim();
+
 const SAMPLE_HTML = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <tr><td style="padding:24px 20px 12px;font-size:22px;font-weight:600;color:#111">Weekly digest</td></tr>
   <tr><td style="padding:0 20px 16px;font-size:15px;line-height:1.45;color:#444">Hi there — here is how your campaign could look at full width inside Mail. Tables and inline CSS work best.</td></tr>
@@ -419,6 +460,11 @@ export function EmailHtmlDevicePreview({
                   {preview?.styleTexts.map((css, i) => (
                     <style key={i} dangerouslySetInnerHTML={{ __html: css }} />
                   ))}
+                  <style
+                    dangerouslySetInnerHTML={{
+                      __html: stripDangerousCss(EMAIL_PREVIEW_OVERRIDE_CSS),
+                    }}
+                  />
                   <div
                     className={
                       preview?.bodyClass
