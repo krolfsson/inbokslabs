@@ -8,14 +8,13 @@
  * Type scale follows **Dynamic Type** size-category multipliers applied to Apple’s default
  * *Large* metrics (see “Dynamic Type Sizes” — ratios vs Large for body-style usage).
  * Base pt sizes approximate Mail’s list: sender **subheadline** (~15 pt), time **footnote** (~13 pt),
- * subject emphasized **body** (~17 pt), preview **subheadline** (~15 pt).
+ * subject emphasized **body** (~16 pt; i mock kan ämnesraden brytas till ca 2 rader), preview **subheadline** (~15 pt).
  *
  * Android (Gmail): Reference **360 dp** wide content (common Material breakpoint). Insets 16 dp;
  * 40 dp avatar; 12 dp gap → text column 276 dp. Typography **14 sp** primary / secondary lines,
  * **12 sp** meta — scaled with system **fontScale** presets (not identical to iOS; real devices differ).
  *
- * Truncation in real apps is **glyph- and width-based**, not a fixed character count — we never cap
- * strings; ellipsis comes from CSS at these fixed widths.
+ * Truncation är **bredd- och teckenbaserad**; Mail-mocken ger ämnesraden upp till två rader (preheader 2 rader som i listan).
  */
 
 export type TextSizePreset =
@@ -99,7 +98,8 @@ const ANDROID_FONT_SCALE: Record<TextSizePreset, number> = {
 export const IOS_BASE_PT = {
   sender: 15,
   time: 13,
-  subject: 17,
+  /** Något lägre än 17 pt för bättre överstämmelse med rad-lådan i Inkorg-mocken (2-rads ämnesrad). */
+  subject: 16,
   preview: 15,
 } as const;
 
