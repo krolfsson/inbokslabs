@@ -96,14 +96,14 @@ function inlineStyleToObject(css: string | undefined): CSSProperties | undefined
 /** No Tailwind on capture subtree — TW4 uses oklch/lab; html2canvas parser dies. */
 const FRAME_OUTER: CSSProperties = {
   display: "inline-block",
-  borderRadius: 34,
-  border: "8px solid #1c1c1e",
-  backgroundColor: "#1c1c1e",
-  boxShadow: "0 22px 58px -18px rgba(0,0,0,0.35)",
+  borderRadius: 28,
+  backgroundColor: "#ffffff",
+  boxShadow: "0 22px 58px -18px rgba(0,0,0,0.25)",
+  overflow: "hidden",
 };
 
 const FRAME_SCREEN: CSSProperties = {
-  borderRadius: 26,
+  borderRadius: 28,
   overflow: "hidden",
   backgroundColor: "#ffffff",
 };
@@ -574,7 +574,7 @@ export function EmailHtmlDevicePreview({
         scale: EXPORT_SCALE,
         useCORS: true,
         logging: false,
-        backgroundColor: "#1c1c1e",
+        backgroundColor: "#ffffff",
         foreignObjectRendering: false,
         imageTimeout: 20000,
         width: exportWidth,
