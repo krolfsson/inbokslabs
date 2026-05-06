@@ -20,7 +20,7 @@ const tabs: { id: TabId; label: string }[] = [
 export function PreviewWorkbench() {
   const [tab, setTab] = useState<TabId>("inbox");
 
-  const [sender, setSender] = useState("SvD Ekonomi");
+  const [sender, setSender] = useState("Nordea");
   const [subject, setSubject] = useState(
     "Boränteprognosen: Riksbanken avvaktar",
   );

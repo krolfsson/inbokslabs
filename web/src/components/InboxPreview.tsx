@@ -7,6 +7,22 @@ type Theme = "light" | "dark";
 type Platform = "iphone" | "android";
 type Client = "mail" | "gmail";
 
+/** Nordea varumärkesblå (approximation för mockup). */
+const NORDEA_BLUE = "#0482BB";
+
+function isNordeaSender(name: string): boolean {
+  return name.trim().toLowerCase() === "nordea";
+}
+
+/** Bokstav(er) i avatars: Nordea → vit N; annars som tidigare initialer. */
+function avatarGlyph(name: string): string {
+  if (isNordeaSender(name)) return "N";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "L";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export function InboxPreview(props: {
   sender: string;
   subject: string;
@@ -204,6 +220,7 @@ function AppleMailMock({
 }) {
   const dark = theme === "dark";
   const textWidth = width - padding * 2 - avatarSize - gap;
+  const nordea = isNordeaSender(sender);
 
   return (
     <div
@@ -237,14 +254,22 @@ function AppleMailMock({
       <div className="py-2 pr-4" style={{ paddingLeft: padding }}>
         <div className="flex items-start" style={{ gap }}>
           <div
-            className="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-rose-500 font-semibold text-white"
+            className={
+              nordea
+                ? "flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
+                : "flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-rose-500 font-semibold text-white"
+            }
             style={{
               width: avatarSize,
               height: avatarSize,
-              fontSize: Math.max(10, Math.round(avatarSize * 0.34)),
+              fontSize: Math.max(
+                10,
+                Math.round(avatarSize * (nordea ? 0.44 : 0.34)),
+              ),
+              ...(nordea ? { backgroundColor: NORDEA_BLUE } : {}),
             }}
           >
-            {initials(sender)}
+            {avatarGlyph(sender)}
           </div>
           <div
             className="min-w-0 shrink"
@@ -337,6 +362,7 @@ function GmailMock({
   type: TextMetrics;
 }) {
   const dark = theme === "dark";
+  const nordea = isNordeaSender(sender);
 
   return (
     <div
@@ -365,16 +391,21 @@ function GmailMock({
         style={{ paddingLeft: LAYOUT.gmailHorizontalPaddingPx }}
       >
         <div
-          className={`flex shrink-0 items-center justify-center rounded-full font-medium ${
-            dark ? "bg-[#5f6368] text-white" : "bg-[#1a73e8] text-white"
+          className={`flex shrink-0 items-center justify-center rounded-full font-medium text-white ${
+            nordea
+              ? ""
+              : dark
+                ? "bg-[#5f6368]"
+                : "bg-[#1a73e8]"
           }`}
           style={{
             width: LAYOUT.gmailAvatarPx,
             height: LAYOUT.gmailAvatarPx,
             fontSize: Math.round(13 * (type.subject / GMAIL_BASE_SP.subject)),
+            ...(nordea ? { backgroundColor: NORDEA_BLUE } : {}),
           }}
         >
-          {initials(sender)}
+          {avatarGlyph(sender)}
         </div>
         <div
           className="min-w-0 shrink"
@@ -437,9 +468,3 @@ function GmailMock({
   );
 }
 
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "L";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
