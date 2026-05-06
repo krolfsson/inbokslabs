@@ -1,4 +1,4 @@
-module github.com/lithmuth/render
+module inbokslabs/render
 
 go 1.22
 

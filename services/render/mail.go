@@ -40,13 +40,13 @@ func sendPNGReply(toEmail, subject string, png []byte) error {
 
 	subj := subject
 	if subj == "" {
-		subj = "Your Lithmuth mockup"
+		subj = "Your inbokslabs mockup"
 	}
 	if !strings.HasPrefix(strings.ToLower(subj), "re:") {
 		subj = "Re: " + subj
 	}
 
-	body := "Here is your Lithmuth iPhone mockup PNG (see attachment)."
+	body := "Here is your inbokslabs iPhone mockup PNG (see attachment)."
 
 	var parts bytes.Buffer
 	mw := multipart.NewWriter(&parts)
@@ -66,9 +66,9 @@ func sendPNGReply(toEmail, subject string, png []byte) error {
 	_ = qw.Close()
 
 	ah := make(textproto.MIMEHeader)
-	ah.Set("Content-Type", `image/png; name="mockup.png"`)
+	ah.Set("Content-Type", `image/png; name="inbokslabs-mockup.png"`)
 	ah.Set("Content-Transfer-Encoding", "base64")
-	ah.Set("Content-Disposition", `attachment; filename="lithmuth-mockup.png"`)
+	ah.Set("Content-Disposition", `attachment; filename="inbokslabs-mockup.png"`)
 	attachPart, err := mw.CreatePart(ah)
 	if err != nil {
 		return err

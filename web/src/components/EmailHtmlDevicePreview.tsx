@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -10,10 +11,15 @@ import {
 import type { CSSProperties } from "react";
 import { toPng } from "html-to-image";
 import {
+  normalizeEmailHtmlInput,
   parseEmailForPreview,
   resolveRelativeAssetUrls,
   stripDangerousCss,
 } from "@/lib/emailHtmlUtils";
+import { DataHandlingNote } from "@/components/DataHandlingNote";
+import { SLIDE_MS, SLIDE_TIMING_CSS } from "@/components/SlidingSegment";
+
+const WIDTH_CHIP_PRESETS = [600, 640, 700, 800] as const;
 
 /** Default full-email artboard width (px). Inbox mockups stay at 390px device width. */
 const DEFAULT_PREVIEW_WIDTH = 600;
@@ -21,6 +27,19 @@ const PREVIEW_WIDTH_MIN = 280;
 const PREVIEW_WIDTH_MAX = 1200;
 
 const EXPORT_SCALE = 3;
+/** För AI vision — lägre pixel­ratio minskar payload men räcker för att se knappar/länkar. */
+const VISION_CAPTURE_PIXEL_RATIO = 2;
+
+/**
+ * html-to-image har en modul­cache för inbäddade resurser. Nyckeln ignorerar query som standard,
+ * så alla våra `/api/image?url=…` råkade dela samma cache — export fick samma bitmap överallt.
+ * `includeQueryParams` + `no-store` + `cacheBust` gör varje distinkt bild-URL och varje export färsk.
+ */
+const HTML_TO_IMAGE_FETCH = {
+  cacheBust: true as const,
+  includeQueryParams: true as const,
+  fetchRequestInit: { cache: "no-store" as const },
+};
 
 /** Email-like HTML: allow classes, tables, inline CSS (profiles + extras). */
 const PURIFY_BODY = {
@@ -99,7 +118,8 @@ const FRAME_OUTER: CSSProperties = {
   display: "inline-block",
   borderRadius: 28,
   backgroundColor: "#ffffff",
-  boxShadow: "0 22px 58px -18px rgba(0,0,0,0.25)",
+  boxShadow: "none",
+  border: "1px solid rgba(0,0,0,0.08)",
   overflow: "hidden",
 };
 
@@ -229,12 +249,27 @@ const EMAIL_PREVIEW_OVERRIDE_CSS = `
 }
 `.trim();
 
-const SAMPLE_HTML = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <tr><td style="padding:24px 20px 12px;font-size:22px;font-weight:600;color:#111">Nyhetsbrev som exempel</td></tr>
-  <tr><td style="padding:0 20px 16px;font-size:15px;line-height:1.45;color:#444">Så här kan kampanjen se ut vid full bredd i mailklienten. Tabeller och inline‑CSS ger bäst resultat.</td></tr>
-  <tr><td style="padding:0 20px 24px;"><a href="#" style="display:inline-block;background:#ff5c47;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:999px;font-size:15px;">Öppna arbetsytan</a></td></tr>
-  <tr><td style="padding:16px 20px;border-top:1px solid #eee;font-size:12px;color:#888">Du ser detta för att du förhandsvisar ett utskick.</td></tr>
+/** Default för tom arbetsyta och obunden förhandskomponent (kan styras externt). */
+export const DEFAULT_EMAIL_PREVIEW_HTML = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <tr><td style="padding:24px 20px 12px;font-size:22px;font-weight:600;color:#111">Rubrik</td></tr>
+  <tr><td style="padding:0 20px 16px;font-size:15px;line-height:1.45;color:#444">Brödtext</td></tr>
+  <tr><td style="padding:0 20px 24px;"><a href="#" style="display:inline-block;background:#ff5c47;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:999px;font-size:15px;">Knapp</a></td></tr>
+  <tr><td style="padding:16px 20px;border-top:1px solid #eee;font-size:12px;color:#888">Sidfot</td></tr>
 </table>`;
+
+const CTA_AI_DEBOUNCE_MS = 680;
+
+function collapseWs(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/** Tom om användaren inte ändrat bort appens skelett eller klistrat in .eml/html. */
+function resolvedHtmlForCtaAi(raw: string, defaultSkeleton: string): string {
+  const n = normalizeEmailHtmlInput(raw).trim();
+  if (!n) return "";
+  if (collapseWs(n) === collapseWs(defaultSkeleton)) return "";
+  return normalizeEmailHtmlInput(raw);
+}
 
 type PreviewPayload = {
   styleTexts: string[];
@@ -427,7 +462,13 @@ export function EmailHtmlDevicePreview({
 }: {
   embedded?: boolean;
 } = {}) {
-  const [rawHtml, setRawHtml] = useState(SAMPLE_HTML);
+  const [rawHtml, setRawHtml] = useState(DEFAULT_EMAIL_PREVIEW_HTML);
+
+  const [ctaText, setCtaText] = useState("");
+  const [ctaBusy, setCtaBusy] = useState(false);
+  const [ctaErr, setCtaErr] = useState<string | null>(null);
+  const [ctaNoKey, setCtaNoKey] = useState(false);
+
   /** Folder or origin where relative <img src> paths resolve (e.g. https://cdn.example.com/campaign/). */
   const [assetBaseUrl, setAssetBaseUrl] = useState("");
   const [previewWidth, setPreviewWidth] = useState(DEFAULT_PREVIEW_WIDTH);
@@ -442,9 +483,41 @@ export function EmailHtmlDevicePreview({
   const captureRootRef = useRef<HTMLDivElement>(null);
   const frameScreenRef = useRef<HTMLDivElement>(null);
   const emailInnerRef = useRef<HTMLDivElement>(null);
+  const widthChipWrapRef = useRef<HTMLDivElement>(null);
+  const widthChipBtnRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [widthPillGeom, setWidthPillGeom] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   useEffect(() => {
     setPreviewWidthDraft(String(previewWidth));
+  }, [previewWidth]);
+
+  useLayoutEffect(() => {
+    const wrap = widthChipWrapRef.current;
+    const idx = WIDTH_CHIP_PRESETS.indexOf(
+      previewWidth as (typeof WIDTH_CHIP_PRESETS)[number],
+    );
+    if (!wrap || idx < 0) {
+      setWidthPillGeom(null);
+      return;
+    }
+    const btn = widthChipBtnRefs.current[idx];
+    if (!btn) {
+      setWidthPillGeom(null);
+      return;
+    }
+    const wr = wrap.getBoundingClientRect();
+    const br = btn.getBoundingClientRect();
+    setWidthPillGeom({
+      left: br.left - wr.left,
+      top: br.top - wr.top,
+      width: br.width,
+      height: br.height,
+    });
   }, [previewWidth]);
 
   useEffect(() => {
@@ -477,6 +550,11 @@ export function EmailHtmlDevicePreview({
   }, [rawHtml, assetBaseUrl]);
 
   const hasContent = (preview?.bodyHtml.length ?? 0) > 0;
+
+  const ctaAiPayload = useMemo(
+    () => resolvedHtmlForCtaAi(rawHtml, DEFAULT_EMAIL_PREVIEW_HTML),
+    [rawHtml],
+  );
 
   const frameScrollStyle = useMemo(
     (): CSSProperties => ({
@@ -591,7 +669,7 @@ export function EmailHtmlDevicePreview({
       const exportHeight = Math.max(clone.scrollHeight, clone.offsetHeight);
 
       const dataUrl = await toPng(clone, {
-        cacheBust: true,
+        ...HTML_TO_IMAGE_FETCH,
         pixelRatio: EXPORT_SCALE,
         width: exportWidth,
         height: exportHeight,
@@ -604,7 +682,7 @@ export function EmailHtmlDevicePreview({
 
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = `lithmuth-epost-${Date.now()}.png`;
+      a.download = `inbokslabs-epost-${Date.now()}.png`;
       a.click();
     } catch (e) {
       const msg =
@@ -615,6 +693,153 @@ export function EmailHtmlDevicePreview({
       setExporting(false);
     }
   }, [hasContent]);
+
+  const capturePreviewForVisionAi = useCallback(async (): Promise<string | null> => {
+    const root = captureRootRef.current;
+    const inner = emailInnerRef.current;
+    if (!root || !inner || !hasContent) return null;
+
+    let exportHost: HTMLDivElement | null = null;
+    try {
+      await flushLayout();
+      await waitForImages(inner);
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        try {
+          await document.fonts.ready;
+        } catch {
+          /* ignore */
+        }
+      }
+      await flushLayout();
+
+      const { host, clone } = createExportClone(root);
+      exportHost = host;
+
+      await flushLayout();
+      await waitForImages(clone);
+      await flushLayout();
+
+      const exportWidth = Math.max(clone.scrollWidth, clone.offsetWidth);
+      const exportHeight = Math.max(clone.scrollHeight, clone.offsetHeight);
+
+      return await toPng(clone, {
+        ...HTML_TO_IMAGE_FETCH,
+        pixelRatio: VISION_CAPTURE_PIXEL_RATIO,
+        width: exportWidth,
+        height: exportHeight,
+        backgroundColor: "#ffffff",
+        style: {
+          margin: "0",
+          transform: "none",
+        },
+      });
+    } catch {
+      return null;
+    } finally {
+      exportHost?.remove();
+    }
+  }, [hasContent]);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => {
+      if (!ctaAiPayload) {
+        setCtaText("");
+        setCtaErr(null);
+        setCtaBusy(false);
+        setCtaNoKey(false);
+        return;
+      }
+
+      void (async () => {
+        setCtaBusy(true);
+        setCtaErr(null);
+        setCtaNoKey(false);
+        setCtaText("");
+        try {
+          let screenshotDataUrl: string | null = null;
+          if (hasContent) {
+            screenshotDataUrl = await capturePreviewForVisionAi();
+          }
+          if (ac.signal.aborted) return;
+
+          const payload: { html: string; screenshotDataUrl?: string } = {
+            html: ctaAiPayload,
+          };
+          if (screenshotDataUrl?.startsWith("data:image/")) {
+            payload.screenshotDataUrl = screenshotDataUrl;
+          }
+
+          const res = await fetch("/api/email-cta-ai", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: ac.signal,
+          });
+
+          if (res.status === 503) {
+            let code = "";
+            try {
+              const j = (await res.json()) as { error?: string };
+              code = j.error ?? "";
+            } catch {
+              /* ignore */
+            }
+            if (code === "NO_KEY") {
+              setCtaNoKey(true);
+              return;
+            }
+            setCtaErr("CTA‑analys är inte konfigurerad just nu.");
+            return;
+          }
+
+          if (res.status === 400) {
+            setCtaErr("Innehåll saknas eller kunde inte tolkas.");
+            return;
+          }
+
+          if (res.status === 413) {
+            setCtaErr("Skärmbilden blev för stor — prova ett kortare utkast eller smalare bredd.");
+            return;
+          }
+
+          if (!res.ok) {
+            setCtaErr("Kunde inte hämta CTA‑analys.");
+            return;
+          }
+
+          const reader = res.body?.getReader();
+          if (!reader) {
+            setCtaErr("Saknar svar från servern.");
+            return;
+          }
+
+          const dec = new TextDecoder();
+          while (!ac.signal.aborted) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = dec.decode(value, { stream: true });
+            if (chunk) setCtaText((prev) => prev + chunk);
+          }
+        } catch (e) {
+          if (ac.signal.aborted) return;
+          const name =
+            e && typeof e === "object" && "name" in e
+              ? String((e as Error).name)
+              : "";
+          if (name === "AbortError") return;
+          setCtaErr(e instanceof Error ? e.message : "Något gick fel.");
+        } finally {
+          if (!ac.signal.aborted) setCtaBusy(false);
+        }
+      })();
+    }, CTA_AI_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+      ac.abort();
+    };
+  }, [ctaAiPayload, hasContent, capturePreviewForVisionAi]);
 
   const commitPreviewWidth = () => {
     const n = Number.parseInt(previewWidthDraft.trim(), 10);
@@ -642,45 +867,48 @@ export function EmailHtmlDevicePreview({
   return (
     <section className={embedded ? "" : "mt-12"}>
       <div className="grid gap-8 lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-10">
-        <div className="rounded-[30px] bg-zinc-50/90 p-5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
+        <div className="rounded-[30px] border border-brand/10 bg-brand-tint/55 p-5 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.06)]">
           <div className="mb-6">
-            <h2 className="text-2xl font-semibold tracking-[-0.035em] text-zinc-950">
+            <h2 className="text-2xl font-semibold tracking-[-0.035em] text-brand">
               E-postförhandsvisning
             </h2>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-zinc-600">
               Klistra in HTML eller ett rått e-postmeddelande (t.ex. .eml-källa).
             </p>
+            <div className="mt-4">
+              <DataHandlingNote variant="email-html" />
+            </div>
           </div>
 
           <div className="space-y-4">
             <label className="block space-y-2">
-              <span className="text-xs font-medium text-zinc-500">
+              <span className="text-xs font-medium text-brand-deep/85">
                 E-post
               </span>
               <textarea
                 value={rawHtml}
                 onChange={(e) => setRawHtml(e.target.value)}
                 spellCheck={false}
-                className="textarea-email-html h-[min(430px,54vh)] w-full resize-none rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]"
+                className="textarea-email-html h-[min(430px,54vh)] w-full resize-none rounded-2xl border border-brand/10 bg-white/90 px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-brand/35 focus:bg-white focus:shadow-[0_0_0_4px_rgba(79,70,229,0.10)]"
                 placeholder="Klistra in HTML eller källtext från .eml…"
               />
             </label>
 
             <label className="block space-y-2">
-              <span className="text-xs font-medium text-zinc-500">
+              <span className="text-xs font-medium text-brand-deep/85">
                 Bas-URL för bilder
               </span>
               <input
                 type="url"
                 value={assetBaseUrl}
                 onChange={(e) => setAssetBaseUrl(e.target.value)}
-                className="w-full rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 text-[15px] text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]"
+                className="w-full rounded-2xl border border-brand/10 bg-white/90 px-4 py-3 text-[15px] text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-brand/35 focus:bg-white focus:shadow-[0_0_0_4px_rgba(79,70,229,0.10)]"
                 placeholder="Valfritt (t.ex. CDN)"
               />
             </label>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
-              <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-semibold text-zinc-950 shadow-[0_1px_10px_rgba(0,0,0,0.08)] transition hover:bg-zinc-50">
+              <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-full border border-brand/20 bg-white px-5 text-sm font-semibold text-brand shadow-sm transition hover:border-brand/40 hover:bg-brand-tint/40">
                 <input
                   type="file"
                   accept=".html,.htm,.eml,text/html,.txt"
@@ -693,7 +921,7 @@ export function EmailHtmlDevicePreview({
                 type="button"
                 disabled={!hasContent || exporting}
                 onClick={savePng}
-                className="inline-flex h-11 items-center justify-center rounded-full bg-zinc-950 px-5 text-sm font-semibold text-white shadow-[0_1px_10px_rgba(0,0,0,0.16)] transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-brand px-5 text-sm font-semibold text-white shadow-[0_2px_14px_rgba(79,70,229,0.28)] transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {exporting ? "Sparar…" : "Spara PNG"}
               </button>
@@ -703,16 +931,79 @@ export function EmailHtmlDevicePreview({
                 {exportError}
               </p>
             ) : null}
+
+            <div
+              className="rounded-2xl border border-brand/15 bg-white/90 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]"
+              aria-live="polite"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold tracking-tight text-brand-deep">
+                  CTA‑analys (AI)
+                </h3>
+                {ctaBusy ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-zinc-400">
+                    <span className="size-1.5 animate-pulse rounded-full bg-zinc-400" />
+                    Analyserar…
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-2 text-[11px] leading-snug text-zinc-500">
+                Efter en kort paus tas en{" "}
+                <strong>skärmdump av förhands­visningen</strong>
+                {" "}(samma vy som till höger) och skickas till AI tillsammans med trunkerad HTML/.eml, så
+                modellen ser knapp­utseende som du gör; analysen lägger tyngdpunkt på{" "}
+                <strong>CTA‑copy</strong> (vad som står på knappen eller länken). Inkorgs­fliken
+                påverkas inte.
+              </p>
+              {ctaNoKey ? (
+                <p className="mt-3 rounded-xl bg-zinc-50 px-3 py-2.5 text-[12px] leading-snug text-zinc-600">
+                  För AI här krävs{" "}
+                  <code className="rounded bg-zinc-200/80 px-1 py-0.5 text-[11px]">
+                    OPENAI_API_KEY
+                  </code>{" "}
+                  i <code className="rounded bg-zinc-200/80 px-1 py-0.5 text-[11px]">
+                    web/.env.local
+                  </code>
+                  eller i miljön på deploy.
+                </p>
+              ) : null}
+              {ctaErr && !ctaNoKey ? (
+                <p className="mt-3 text-[12px] text-rose-600" role="alert">
+                  {ctaErr}
+                </p>
+              ) : null}
+              <div className="mt-3 min-h-[2rem] whitespace-pre-wrap text-[12px] leading-relaxed text-zinc-700">
+                {!ctaAiPayload && !ctaBusy && !ctaErr ? (
+                  <span className="text-zinc-400">
+                    Lägg in e-post utöver standard­skelettet eller importera fil för analys.
+                  </span>
+                ) : null}
+                {ctaBusy &&
+                ctaAiPayload &&
+                ctaText.length === 0 &&
+                !ctaErr &&
+                !ctaNoKey ? (
+                  <span className="text-zinc-500">Ansluter till modellen…</span>
+                ) : null}
+                {ctaText.trim() !== "" ? ctaText.trim() : null}
+                {ctaBusy && ctaText.length > 0 ? (
+                  <span
+                    className="ml-0.5 inline-block h-4 w-0.5 translate-y-0.5 animate-pulse bg-zinc-400 align-middle"
+                    aria-hidden
+                  />
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="min-w-0 rounded-[30px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] sm:p-6">
+        <div className="min-w-0 rounded-[30px] border border-brand/10 bg-brand-tint/55 p-4 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.06)] sm:p-6">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm font-semibold tracking-tight text-zinc-900">
+            <span className="text-sm font-semibold tracking-tight text-brand">
               Förhandsvisning
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 text-xs text-zinc-500">
+              <label className="flex items-center gap-2 text-xs text-zinc-600">
                 <span className="font-medium">Bredd</span>
                 <input
                   type="number"
@@ -728,21 +1019,40 @@ export function EmailHtmlDevicePreview({
                       e.currentTarget.blur();
                     }
                   }}
-                  className="w-[4.5rem] rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-right text-sm font-medium tabular-nums text-zinc-900 outline-none transition focus:border-zinc-300 focus:bg-white"
+                  className="w-[4.5rem] rounded-xl border border-brand/15 bg-white px-2 py-1.5 text-right text-sm font-medium tabular-nums text-zinc-900 outline-none transition focus:border-brand/35 focus:bg-white"
                 />
                 <span className="text-zinc-400">px</span>
               </label>
-              <div className="hidden h-4 w-px bg-zinc-200 sm:block" aria-hidden />
-              <div className="flex flex-wrap gap-1">
-                {([600, 640, 700, 800] as const).map((w) => (
+              <div className="hidden h-4 w-px bg-brand/15 sm:block" aria-hidden />
+              <div
+                ref={widthChipWrapRef}
+                className="relative inline-flex flex-wrap gap-1 rounded-full bg-brand-tint/50 p-1"
+              >
+                {widthPillGeom ? (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute z-0 rounded-full bg-brand shadow-sm"
+                    style={{
+                      left: widthPillGeom.left,
+                      top: widthPillGeom.top,
+                      width: widthPillGeom.width,
+                      height: widthPillGeom.height,
+                      transition: `left ${SLIDE_MS}ms ${SLIDE_TIMING_CSS}, top ${SLIDE_MS}ms ${SLIDE_TIMING_CSS}, width ${SLIDE_MS}ms ${SLIDE_TIMING_CSS}, height ${SLIDE_MS}ms ${SLIDE_TIMING_CSS}`,
+                    }}
+                  />
+                ) : null}
+                {WIDTH_CHIP_PRESETS.map((w, i) => (
                   <button
                     key={w}
+                    ref={(el) => {
+                      widthChipBtnRefs.current[i] = el;
+                    }}
                     type="button"
                     onClick={() => setPreviewWidth(w)}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                    className={`relative z-[1] rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors duration-300 ${
                       previewWidth === w
-                        ? "bg-zinc-900 text-white"
-                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                        ? "text-white"
+                        : "text-zinc-700 hover:text-brand-deep"
                     }`}
                   >
                     {w}

@@ -1,16 +1,16 @@
-# Lithmuth
+# inbokslabs
 
-Lithmuth pairs a **Next.js** marketing and tools site with a **Go** rendering service:
+inbokslabs pairs a **Next.js** marketing and tools site with a **Go** rendering service:
 
-1. **Inbox lab** (`/preview` on the web app) — edit sender, subject, and preheader; see iPhone Mail–style and Gmail-style inbox rows (light/dark).
-2. **Email → PNG** — the Go service accepts inbound mail webhooks, renders HTML in headless Chromium at phone width, composites a phone frame, and **replies** with a PNG attachment over SMTP.
+1. **Inbox lab** (startsida `/`) — ändra avsändare, rubrik och ingress; se iPhone Mail– och Gmail‑rader (ljus/mörk).
+2. **Email → PNG** — Go-tjänsten tar emot webbhooks, renderar HTML i Chromium, ramar in telefonen och **svarar med PNG** via SMTP.
 
 ## Project layout
 
 | Path | Role |
 |------|------|
-| `web/` | Next.js 16 (App Router) — deploy to [Vercel](https://vercel.com); set the project root to `web` or import the `web` folder only. |
-| `services/render/` | Go HTTP service + Dockerfile (Chromium + chromedp). Run on Fly.io, Railway, Render, etc. |
+| `web/` | Next.js 16 (App Router) — NPM-paket **`inbokslabs-web`**; sätt Vercel-root till `web` om du bara importerar den mappen. |
+| `services/render/` | Go HTTP + Dockerfile (Chromium + chromedp). Kör på Fly.io, Railway, Render, m.fl. |
 
 ## Web app
 
@@ -20,35 +20,33 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) for the landing page and [http://localhost:3000/preview](http://localhost:3000/preview) for the inbox lab.
+Öppna [http://localhost:3000](http://localhost:3000) för startsida (inkorgs- och mejllabbet) och [http://localhost:3000/integritet](http://localhost:3000/integritet) för integritetstext.
 
 ## Render service
 
-Configure environment (see `services/render/.env.example`):
+Miljö (se `services/render/.env.example`):
 
-- **`WEBHOOK_SECRET`** — optional; when set, requests must include header `X-Webhook-Secret: <value>`.
-- **`SMTP_*`** — required for replying with attachments (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`).
-- **`CHROME_BIN`** — optional; defaults to common paths and `/usr/bin/chromium` in Docker.
+- **`WEBHOOK_SECRET`** — valfritt; säker header `X-Webhook-Secret`.
+- **`SMTP_*`** — för svar med bilaga (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`).
+- **`CHROME_BIN`** — valfritt.
 
 Endpoints:
 
-- **`POST /v1/inbound`** — multipart form fields like `body-html`, `body-plain`, `sender`, `subject` (compatible with common inbound mail parsers).
-- **`POST /v1/render-test`** — JSON `{ "html": "<div>...</div>", "to": "you@example.com" }`; returns PNG bytes for quick validation (optional `to` + SMTP to also email).
-- **`GET /health`** — JSON health check.
+- **`POST /v1/inbound`** — multipart (`body-html`, `sender`, `subject`, …).
+- **`POST /v1/render-test`** — JSON `{ "html": "...", "to": "..." }`.
+- **`GET /health`**.
 
 ### Docker
 
 ```bash
 cd services/render
-docker build -t lithmuth-render .
+docker build -t inbokslabs-render .
 docker run --rm -p 8080:8080 \
-  -e SMTP_HOST=... -e SMTP_USER=... -e SMTP_PASSWORD=... -e SMTP_FROM="Lithmuth <mockups@...>" \
-  lithmuth-render
+  -e SMTP_HOST=... -e SMTP_USER=... -e SMTP_PASSWORD=... -e SMTP_FROM="inbokslabs <mockups@...>" \
+  inbokslabs-render
 ```
 
-### Local Go build
-
-Requires Go ≥ 1.22 and a local Chrome/Chromium (set `CHROME_BIN` if needed):
+### Lokal Go
 
 ```bash
 cd services/render
@@ -56,7 +54,11 @@ go mod tidy
 go run .
 ```
 
+## Integritet / kundförtroende
+
+Sidan **`/integritet`** sammanfattar databehov: förhandsHTML och PNG i webbläsaren; bildproxy med **`private, no-store`**; Inkorg‑AI kan skicka texter till OpenAI när nyckeln är satt.
+
 ## Notes
 
-- Renders are **approximations**: Chromium ≠ every real mobile mail client; use Lithmuth for speed, then Litmus or devices for final QA.
-- Very large HTML payloads may hit `data:` URL limits in Chrome; switch to a temp-file navigation in `render.go` if you need enterprise-sized messages.
+- Renders är **approximationer**: använd inbokslabs för fart, sedan Litmus/enheter för QA.
+- Mycket stora HTML-last mot `data:`-URL kan begränsas i Chrome; byt navigation i `render.go` vid behov.

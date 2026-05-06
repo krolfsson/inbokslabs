@@ -11,9 +11,9 @@ const bandStyles: Record<
   { bar: string; text: string; ring: string }
 > = {
   high: {
-    bar: "bg-emerald-500",
-    text: "text-emerald-700",
-    ring: "stroke-emerald-500/90",
+    bar: "bg-brand",
+    text: "text-brand",
+    ring: "stroke-brand/95",
   },
   medium: {
     bar: "bg-amber-500",
@@ -139,7 +139,7 @@ export function OpenPotentialMeter({ sender, subject, preheader }: Props) {
 
   return (
     <div
-      className="rounded-2xl border border-zinc-200/80 bg-white/90 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"
+      className="rounded-2xl border border-brand/15 bg-white/95 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.95)]"
       aria-live="polite"
       aria-atomic="false"
     >
@@ -179,7 +179,7 @@ export function OpenPotentialMeter({ sender, subject, preheader }: Props) {
         </div>
 
         <div className="min-w-0 flex-1 pt-0.5">
-          <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
+          <h3 className="text-sm font-semibold tracking-tight text-brand-deep">
             Öppningspotential
           </h3>
           <p className="mt-1 text-[11px] leading-snug text-zinc-500">
@@ -217,10 +217,10 @@ export function OpenPotentialMeter({ sender, subject, preheader }: Props) {
       ) : null}
 
       <details className="mt-4 [&[open]>summary_.details-chevron]:rotate-180">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl border border-zinc-200/80 bg-zinc-50/80 px-3 py-2.5 text-sm font-medium text-zinc-800 outline-none hover:bg-zinc-100/80 [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl border border-brand/18 bg-white px-3 py-2.5 text-sm font-medium text-brand-deep outline-none hover:border-brand/35 hover:bg-brand-tint/35 [&::-webkit-details-marker]:hidden">
           <span>Visa analys</span>
           <svg
-            className="details-chevron size-4 shrink-0 text-zinc-400 transition-transform duration-200"
+            className="details-chevron size-4 shrink-0 text-brand/50 transition-transform duration-200"
             aria-hidden
             fill="none"
             viewBox="0 0 24 24"
@@ -231,7 +231,7 @@ export function OpenPotentialMeter({ sender, subject, preheader }: Props) {
           </svg>
         </summary>
 
-        <div className="mt-3 border-t border-zinc-100 pt-4">
+        <div className="mt-3 border-t border-brand/10 pt-4">
           {showAiBlock && !aiError && !aiNoKey ? (
             <div className="mb-4">
               <div className="flex items-center justify-between gap-2">
@@ -290,7 +290,7 @@ export function OpenPotentialMeter({ sender, subject, preheader }: Props) {
                   <span
                     className={
                       s.delta >= 0
-                        ? "mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-500"
+                        ? "mt-1.5 size-1.5 shrink-0 rounded-full bg-brand"
                         : "mt-1.5 size-1.5 shrink-0 rounded-full bg-rose-400"
                     }
                     aria-hidden

@@ -5,10 +5,16 @@ import { EmailHtmlDevicePreview } from "@/components/EmailHtmlDevicePreview";
 import { InboxPreview } from "@/components/InboxPreview";
 import { OpenPotentialMeter } from "@/components/OpenPotentialMeter";
 import { TextSizeControl } from "@/components/TextSizeControl";
+import { DataHandlingNote } from "@/components/DataHandlingNote";
+import {
+  SlidePanels,
+  SlidingWorkbenchTabs,
+  previewWorkbenchTabPanelId,
+} from "@/components/SlidingSegment";
 import { scalesAtStep } from "@/lib/inboxTypography";
 
 const field =
-  "w-full rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 text-[15px] text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]";
+  "w-full rounded-2xl border border-brand/10 bg-white/90 px-4 py-3 text-[15px] text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-brand/35 focus:bg-white focus:shadow-[0_0_0_4px_rgba(79,70,229,0.10)]";
 
 type TabId = "inbox" | "email";
 
@@ -20,14 +26,11 @@ const tabs: { id: TabId; label: string }[] = [
 export function PreviewWorkbench() {
   const [tab, setTab] = useState<TabId>("inbox");
 
-  const [sender, setSender] = useState("Nordea");
-  const [subject, setSubject] = useState(
-    "Boränteprognosen: Riksbanken avvaktar",
-  );
-  const [preheader, setPreheader] = useState(
-    "Omvärldens osäkerhet fortsätter prägla marknaden även om konflikten hittills haft begränsad effekt på inflationen.",
-  );
-  const [textStep, setTextStep] = useState(3);
+  const [sender, setSender] = useState("Avsändare");
+  const [subject, setSubject] = useState("Skriv din ämnesrad här");
+  const [preheader, setPreheader] = useState("Skriv din ingress här");
+  /** 0=XS … 2=M (referens 1,0×) … 4=XL — motsvarar tidigare ”standard” på steg M. */
+  const [textStep, setTextStep] = useState(2);
 
   const { ios: iosScale, android: androidScale } = useMemo(
     () => scalesAtStep(textStep),
@@ -40,142 +43,141 @@ export function PreviewWorkbench() {
   );
 
   return (
-    <section className="relative overflow-hidden rounded-[38px] border border-white/70 bg-white/75 shadow-[0_40px_120px_rgba(0,0,0,0.10)] backdrop-blur-xl">
+    <section className="relative overflow-hidden rounded-[38px] border border-brand/15 bg-white/92 shadow-[0_40px_100px_rgba(79,70,229,0.09)] backdrop-blur-xl">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white"
       />
 
-      <div className="flex items-center justify-between gap-4 border-b border-zinc-200/70 px-5 py-4 sm:px-6">
+      <div className="flex items-center justify-between gap-4 border-b border-brand/10 bg-brand/5 px-5 py-4 sm:px-6">
         <div className="flex items-center gap-2" aria-hidden>
           <span className="size-3 rounded-full bg-[#ff5f57]" />
           <span className="size-3 rounded-full bg-[#ffbd2e]" />
           <span className="size-3 rounded-full bg-[#28c840]" />
         </div>
-        <div
-          role="tablist"
-          aria-label="Läge: inkorg eller e-post"
-          className="mx-auto grid w-full max-w-xs grid-cols-2 rounded-full bg-zinc-100 p-1"
-        >
-          {tabs.map((item) => {
-            const active = tab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                id={`tab-${item.id}`}
-                onClick={() => setTab(item.id)}
-                className={
-                  active
-                    ? "rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 shadow-[0_1px_8px_rgba(0,0,0,0.10)]"
-                    : "rounded-full px-4 py-2 text-sm font-medium text-zinc-500 transition hover:text-zinc-950"
-                }
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
+        <SlidingWorkbenchTabs<TabId>
+          value={tab}
+          onChange={setTab}
+          options={
+            [
+              { value: tabs[0]!.id, label: tabs[0]!.label },
+              { value: tabs[1]!.id, label: tabs[1]!.label },
+            ] as const
+          }
+        />
         <div className="w-[52px]" aria-hidden />
       </div>
 
       <div className="p-5 sm:p-6 lg:p-8">
-        <div
-          role="tabpanel"
-          aria-labelledby="tab-inbox"
-          hidden={tab !== "inbox"}
-          className={tab !== "inbox" ? "hidden" : ""}
-        >
-          <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-10">
-            <div className="rounded-[30px] bg-zinc-50/90 p-5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
-              <div className="mb-6">
-                <h2 className="text-2xl font-semibold tracking-[-0.035em] text-zinc-950">
-                  Inkorgsförhandsvisning
-                </h2>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Skriv raden. Se hur den ter sig i inkorgen.
-                </p>
-              </div>
+        <SlidePanels activeIndex={tab === "inbox" ? 0 : 1}>
+          {[
+            <div
+              key="panel-inbox"
+              id={previewWorkbenchTabPanelId(0)}
+              role="tabpanel"
+              aria-labelledby="tab-inbox"
+              aria-hidden={tab !== "inbox"}
+              tabIndex={tab === "inbox" ? undefined : -1}
+              className={tab !== "inbox" ? "pointer-events-none" : undefined}
+            >
+              <div className="grid gap-8 lg:grid-cols-[minmax(280px,380px)_minmax(0,1fr)] lg:gap-8 lg:items-start">
+                <div className="rounded-[30px] border border-brand/10 bg-brand-tint/55 p-5 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.06)]">
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-semibold tracking-[-0.035em] text-brand">
+                      Inkorgsförhandsvisning
+                    </h2>
+                    <p className="mt-1 text-sm text-zinc-600">
+                      Skriv raden. Se hur den ter sig i inkorgen.
+                    </p>
+                  </div>
 
-              <div className="space-y-4">
-                <label className="block space-y-2">
-                  <span className="text-xs font-medium text-zinc-500">
-                    Avsändare
-                  </span>
-                  <input
-                    value={sender}
-                    onChange={(e) => setSender(e.target.value)}
-                    className={field}
-                    placeholder="Visningsnamn"
-                  />
-                </label>
+                  <div className="space-y-4">
+                    <label className="block space-y-2">
+                      <span className="text-xs font-medium text-brand-deep/85">
+                        Avsändare
+                      </span>
+                      <input
+                        value={sender}
+                        onChange={(e) => setSender(e.target.value)}
+                        className={field}
+                        placeholder="Avsändare"
+                      />
+                    </label>
 
-                <label className="block space-y-2">
-                  <span className="flex items-center justify-between text-xs font-medium text-zinc-500">
-                    Ämnesrad
-                    <span className="font-mono text-[11px] font-normal text-zinc-400">
-                      {counts.subject}
-                    </span>
-                  </span>
-                  <input
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    className={field}
-                  />
-                </label>
+                    <label className="block space-y-2">
+                      <span className="flex items-center justify-between text-xs font-medium text-brand-deep/85">
+                        Ämnesrad
+                        <span className="font-mono text-[11px] font-normal text-zinc-400">
+                          {counts.subject}
+                        </span>
+                      </span>
+                      <input
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                        className={field}
+                        placeholder="Skriv din ämnesrad här"
+                      />
+                    </label>
 
-                <label className="block space-y-2">
-                  <span className="flex items-center justify-between text-xs font-medium text-zinc-500">
-                    Ingress (preheader)
-                    <span className="font-mono text-[11px] font-normal text-zinc-400">
-                      {counts.preheader}
-                    </span>
-                  </span>
-                  <textarea
-                    value={preheader}
-                    onChange={(e) => setPreheader(e.target.value)}
-                    rows={4}
-                    className={`${field} resize-none`}
-                  />
-                </label>
+                    <label className="block space-y-2">
+                      <span className="flex items-center justify-between text-xs font-medium text-brand-deep/85">
+                        Ingress (preheader)
+                        <span className="font-mono text-[11px] font-normal text-zinc-400">
+                          {counts.preheader}
+                        </span>
+                      </span>
+                      <textarea
+                        value={preheader}
+                        onChange={(e) => setPreheader(e.target.value)}
+                        rows={4}
+                        className={`${field} resize-none`}
+                        placeholder="Skriv din ingress här"
+                      />
+                    </label>
 
-                <div className="pt-1">
-                  <TextSizeControl
-                    value={textStep}
-                    onChange={setTextStep}
-                  />
+                    <OpenPotentialMeter
+                      sender={sender}
+                      subject={subject}
+                      preheader={preheader}
+                    />
+
+                    <DataHandlingNote variant="inbox" />
+                  </div>
                 </div>
 
-                <OpenPotentialMeter
-                  sender={sender}
-                  subject={subject}
-                  preheader={preheader}
-                />
+                <div className="flex min-w-0 flex-col gap-6 lg:flex-row lg:gap-6">
+                  <div className="min-h-0 min-w-0 flex-1 rounded-[30px] border border-brand/10 bg-brand-tint/55 p-4 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.06)] sm:p-5">
+                    <InboxPreview
+                      sender={sender}
+                      subject={subject}
+                      preheader={preheader}
+                      iosScale={iosScale}
+                      androidScale={androidScale}
+                    />
+                  </div>
+                  <div className="shrink-0 rounded-[30px] border border-brand/10 bg-brand-tint/55 p-4 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.06)] sm:p-5 lg:w-[min(100%,220px)] lg:max-w-[240px]">
+                    <TextSizeControl
+                      value={textStep}
+                      onChange={setTextStep}
+                      layout="sidebar"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="min-w-0 rounded-[30px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] sm:p-6">
-              <InboxPreview
-                sender={sender}
-                subject={subject}
-                preheader={preheader}
-                iosScale={iosScale}
-                androidScale={androidScale}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div
-          role="tabpanel"
-          aria-labelledby="tab-email"
-          hidden={tab !== "email"}
-          className={tab !== "email" ? "hidden" : ""}
-        >
-          <EmailHtmlDevicePreview embedded />
-        </div>
+            </div>,
+            <div
+              key="panel-email"
+              id={previewWorkbenchTabPanelId(1)}
+              role="tabpanel"
+              aria-labelledby="tab-email"
+              aria-hidden={tab !== "email"}
+              tabIndex={tab === "email" ? undefined : -1}
+              className={tab !== "email" ? "pointer-events-none" : undefined}
+            >
+              <EmailHtmlDevicePreview embedded />
+            </div>,
+          ]}
+        </SlidePanels>
       </div>
     </section>
   );

@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     headers: {
       Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
       "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Lithmuth/1.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Inbokslabs-Preview/1.0",
     },
     redirect: "follow",
   });
@@ -66,7 +66,9 @@ export async function GET(request: Request) {
     status: 200,
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=86400, s-maxage=86400",
+      // Undvik delad CDN-lagring av kunders kampanjbilder; proxy trafikerar vid behov om.
+      "Cache-Control":
+        "private, no-store, max-age=0, must-revalidate",
       "Access-Control-Allow-Origin": "*",
     },
   });

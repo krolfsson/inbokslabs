@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { DM_Sans, Fraunces } from "next/font/google";
+import Link from "next/link";
+import { DM_Sans, Happy_Monkey } from "next/font/google";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -8,23 +9,23 @@ const dmSans = DM_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const happyMonkey = Happy_Monkey({
+  variable: "--font-happy-monkey",
   subsets: ["latin", "latin-ext"],
-  weight: ["500", "600", "700"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "Lithmuth — Förhandsvisning av inkorg och e-post",
-    template: "%s — Lithmuth",
+    default: "inbokslabs — Förhandsvisning av inkorg och e-post",
+    template: "%s — inbokslabs",
   },
   description:
-    "Skriv säkra rubriker och förhandsvisa HTML och inkorgsrader. Se hur ämnesrad och ingress ser ut på iPhone och Android, eller exportera kampanjen som PNG.",
+    "Förhandsvisa inkorgsrader och kampanj-mail som mottagaren ser dem. Rubrik och ingress för mobil, HTML-labb och PNG-export.",
   openGraph: {
-    title: "Lithmuth",
+    title: "inbokslabs",
     description:
-      "Förhandsvisa inkorgsrader och hela nyhetsbrev utan krångliga skärmdumpar.",
+      "Verktyg för inkorgsrader och e-postförhandsvisning på riktiga mockups.",
   },
 };
 
@@ -36,10 +37,18 @@ export default function RootLayout({
   return (
     <html
       lang="sv"
-      className={`${dmSans.variable} ${fraunces.variable} h-full scroll-smooth antialiased`}
+      className={`${dmSans.variable} ${happyMonkey.variable} h-full scroll-smooth antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-[#f5f5f7] text-zinc-950">
+      <body className="flex min-h-full flex-col bg-brand-surface text-zinc-900">
         <div className="flex flex-1 flex-col">{children}</div>
+        <footer className="border-t border-brand/10 bg-white/80 py-4 text-center">
+          <Link
+            href="/integritet"
+            className="text-sm text-brand transition hover:text-brand-deep"
+          >
+            Integritet &amp; data
+          </Link>
+        </footer>
       </body>
     </html>
   );

@@ -113,7 +113,7 @@ func main() {
 		}
 		to := strings.TrimSpace(req.To)
 		if to != "" && smtpConfigured() {
-			if err := sendPNGReply(to, "Lithmuth render test", png); err != nil {
+			if err := sendPNGReply(to, "inbokslabs render test", png); err != nil {
 				log.Printf("mail: %v", err)
 				http.Error(w, "send mail failed", http.StatusInternalServerError)
 				return

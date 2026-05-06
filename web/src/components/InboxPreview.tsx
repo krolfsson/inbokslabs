@@ -1,22 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import { SlidingSegment } from "@/components/SlidingSegment";
 import { GMAIL_BASE_SP, IOS_BASE_PT, LAYOUT } from "@/lib/inboxTypography";
 
 type Theme = "light" | "dark";
 type Platform = "iphone" | "android";
 type Client = "mail" | "gmail";
 
-/** Nordea-avatar (markerad blå enligt önskemål). */
-const NORDEA_BLUE = "#0000a0";
+/** Demonstrationsavsändaren inbokslabs får indigo chip + lägre initial. */
+const INBOKSLABS_AVATAR = "#4f46e5";
 
-function isNordeaSender(name: string): boolean {
-  return name.trim().toLowerCase() === "nordea";
+function isInboksLabsDemoSender(name: string): boolean {
+  return name.trim().toLowerCase() === "inbokslabs";
 }
 
-/** Bokstav(er) i avatars: Nordea → vit N; annars som tidigare initialer. */
+/** Glyph i avatars: inbokslabs → vit “i”; annars tidigare initialer. */
 function avatarGlyph(name: string): string {
-  if (isNordeaSender(name)) return "N";
+  if (isInboksLabsDemoSender(name)) return "i";
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "L";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -55,40 +56,40 @@ export function InboxPreview(props: {
     `${platform === "iphone" ? "iPhone" : "Android"} · ${client === "mail" ? "Mail" : "Gmail"} · ${theme === "light" ? "Ljus" : "Mörk"}`;
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Segmented
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <SlidingSegment<Platform>
           label="Enhet"
           value={platform}
           onChange={setPlatform}
           options={[
-            { value: "iphone" as const, label: "iPhone" },
-            { value: "android" as const, label: "Android" },
+            { value: "iphone", label: "iPhone" },
+            { value: "android", label: "Android" },
           ]}
         />
-        <Segmented
+        <SlidingSegment<Client>
           label="Klient"
           value={client}
           onChange={setClient}
           options={[
-            { value: "mail" as const, label: "Mail" },
-            { value: "gmail" as const, label: "Gmail" },
+            { value: "mail", label: "Mail" },
+            { value: "gmail", label: "Gmail" },
           ]}
         />
-        <Segmented
+        <SlidingSegment<Theme>
           label="Tema"
           value={theme}
           onChange={setTheme}
           options={[
-            { value: "light" as const, label: "Ljus" },
-            { value: "dark" as const, label: "Mörk" },
+            { value: "light", label: "Ljus" },
+            { value: "dark", label: "Mörk" },
           ]}
         />
       </div>
 
-      <p className="text-center text-xs text-zinc-500">{caption}</p>
+      <p className="text-center text-[11px] text-zinc-500">{caption}</p>
 
-      <div className="flex justify-center">
+      <div className="flex justify-center lg:justify-start">
         {client === "mail" ? (
           <AppleMailMock
             sender={sender}
@@ -145,49 +146,6 @@ export function InboxPreview(props: {
   );
 }
 
-function Segmented<T extends string>({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: T;
-  onChange: (v: T) => void;
-  options: readonly { value: T; label: string }[];
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-        {label}
-      </span>
-      <div
-        className="grid grid-cols-2 rounded-full bg-zinc-100 p-0.5"
-        role="group"
-        aria-label={label}
-      >
-        {options.map((o) => {
-          const active = o.value === value;
-          return (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => onChange(o.value)}
-              className={
-                active
-                  ? "rounded-full bg-white px-2.5 py-1.5 text-[11px] font-semibold text-zinc-950 shadow-sm"
-                  : "rounded-full px-2.5 py-1.5 text-[11px] font-medium text-zinc-500 transition hover:text-zinc-800"
-              }
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 type TextMetrics = {
   sender: number;
   time: number;
@@ -220,7 +178,7 @@ function AppleMailMock({
 }) {
   const dark = theme === "dark";
   const textWidth = width - padding * 2 - avatarSize - gap;
-  const nordea = isNordeaSender(sender);
+  const labsDemoAvatar = isInboksLabsDemoSender(sender);
 
   return (
     <div
@@ -255,7 +213,7 @@ function AppleMailMock({
         <div className="flex items-start" style={{ gap }}>
           <div
             className={
-              nordea
+              labsDemoAvatar
                 ? "flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
                 : "flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-rose-500 font-semibold text-white"
             }
@@ -264,9 +222,9 @@ function AppleMailMock({
               height: avatarSize,
               fontSize: Math.max(
                 10,
-                Math.round(avatarSize * (nordea ? 0.44 : 0.34)),
+                Math.round(avatarSize * (labsDemoAvatar ? 0.44 : 0.34)),
               ),
-              ...(nordea ? { backgroundColor: NORDEA_BLUE } : {}),
+              ...(labsDemoAvatar ? { backgroundColor: INBOKSLABS_AVATAR } : {}),
             }}
           >
             {avatarGlyph(sender)}
@@ -362,7 +320,7 @@ function GmailMock({
   type: TextMetrics;
 }) {
   const dark = theme === "dark";
-  const nordea = isNordeaSender(sender);
+  const labsDemoAvatar = isInboksLabsDemoSender(sender);
 
   return (
     <div
@@ -392,7 +350,7 @@ function GmailMock({
       >
         <div
           className={`flex shrink-0 items-center justify-center rounded-full font-medium text-white ${
-            nordea
+            labsDemoAvatar
               ? ""
               : dark
                 ? "bg-[#5f6368]"
@@ -402,7 +360,7 @@ function GmailMock({
             width: LAYOUT.gmailAvatarPx,
             height: LAYOUT.gmailAvatarPx,
             fontSize: Math.round(13 * (type.subject / GMAIL_BASE_SP.subject)),
-            ...(nordea ? { backgroundColor: NORDEA_BLUE } : {}),
+            ...(labsDemoAvatar ? { backgroundColor: INBOKSLABS_AVATAR } : {}),
           }}
         >
           {avatarGlyph(sender)}

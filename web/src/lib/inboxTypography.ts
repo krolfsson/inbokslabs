@@ -35,27 +35,27 @@ export const TEXT_SIZE_OPTIONS: {
   {
     value: "xSmall",
     label: "Extra liten",
-    description: "iOS XS-kategori · Android-teckenskala ~0,85×",
+    description: "Ungefär minsta läsläge · ~0,76× iOS · ~0,78× Android",
   },
   {
     value: "small",
     label: "Liten",
-    description: "iOS S · ~0,88×",
+    description: "~0,87× iOS · ~0,89× Android",
   },
   {
     value: "medium",
     label: "Mellan",
-    description: "iOS M · ~0,94×",
+    description: "Referens (1,0×) — motsvarar tidigare ”standard” i verktyget",
   },
   {
     value: "large",
     label: "Standard",
-    description: "iOS Large (systemstandard) · Android 1,0×",
+    description: "~1,15× iOS · ~1,17× Android",
   },
   {
     value: "xLarge",
     label: "Stor",
-    description: "iOS XL · Android ~1,15×",
+    description: "~1,32× iOS · ~1,34× Android",
   },
   {
     value: "xxLarge",
@@ -70,28 +70,30 @@ export const TEXT_SIZE_OPTIONS: {
 ];
 
 /**
- * Dynamic Type: approximate scale vs **Large** from Apple’s text-style size tables.
- * (Uniform multiplier applied to list-specific base pt sizes.)
+ * Dynamic Type–liknande multipliers. UI‑reglaget **XS–XL** mappar till xSmall…xLarge.
+ * **medium (M) = 1,0** — samma referens som tidigare ”Large / Standard” i förhands­visningen.
+ * Stegen är utdragna jämfört med Apples tabell‑delta så skillnad mellan lägen syns tydligare
+ * i mockup (telefoninställningar varierar ändå mellan enheter).
  */
 const IOS_DT_MULTIPLIER: Record<TextSizePreset, number> = {
-  xSmall: 0.823,
-  small: 0.882,
-  medium: 0.941,
-  large: 1,
-  xLarge: 1.118,
-  xxLarge: 1.235,
-  xxxLarge: 1.353,
+  xSmall: 0.76,
+  small: 0.87,
+  medium: 1,
+  large: 1.15,
+  xLarge: 1.32,
+  xxLarge: 1.42,
+  xxxLarge: 1.52,
 };
 
-/** Android `configuration.fontScale`–style presets (common OS + Gmail behavior). */
+/** Android fontScale‑liknande steg; M = 1,0 som systemets ”normal” i vår mockup. */
 const ANDROID_FONT_SCALE: Record<TextSizePreset, number> = {
-  xSmall: 0.85,
-  small: 0.92,
-  medium: 0.96,
-  large: 1,
-  xLarge: 1.15,
-  xxLarge: 1.3,
-  xxxLarge: 1.45,
+  xSmall: 0.78,
+  small: 0.89,
+  medium: 1,
+  large: 1.17,
+  xLarge: 1.34,
+  xxLarge: 1.44,
+  xxxLarge: 1.54,
 };
 
 /** Base sizes at “Large” / 1.0× for iOS Mail–style row (pt = CSS px here). */
@@ -137,15 +139,15 @@ export const LAYOUT = {
   gmailTextColumnPx: GMAIL_W - GMAIL_PAD * 2 - GMAIL_AV - GMAIL_GAP,
 } as const;
 
-/** Ordered presets for the text-size control (7 discrete stops). */
+/**
+ * Diskret storleksskala i UI: **XS · S · M · L · XL** (↔ Dynamic Type xSmall … xLarge).
+ */
 export const TEXT_SIZE_PRESET_ORDER: TextSizePreset[] = [
   "xSmall",
   "small",
   "medium",
   "large",
   "xLarge",
-  "xxLarge",
-  "xxxLarge",
 ];
 
 /** Last step index (0-based). */
@@ -155,15 +157,13 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-/** Short labels for ticks under the slider (7 stops; last = xxxLarge). */
+/** Korta etiketter under reglaget (5 steg). */
 export const TEXT_SIZE_STEP_SHORT: readonly string[] = [
   "XS",
   "S",
   "M",
-  "Std",
   "L",
   "XL",
-  "3XL",
 ];
 
 /**

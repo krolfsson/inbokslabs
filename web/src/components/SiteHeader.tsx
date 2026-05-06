@@ -13,7 +13,7 @@ export function SiteHeader() {
           href="/"
           className="font-semibold tracking-tight text-zinc-900"
         >
-          Lithmuth
+          inbokslabs
         </Link>
         <nav className="flex items-center gap-6 text-sm text-zinc-600">
           {links.map((l) => (

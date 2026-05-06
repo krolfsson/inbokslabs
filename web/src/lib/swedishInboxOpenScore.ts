@@ -69,7 +69,7 @@ function wordOverlapRatio(a: string, b: string): number {
 function subjectLengthScore(len: number): { score: number; label: string } {
   if (len === 0) return { score: 0, label: "Rubrik saknas." };
   if (len <= 20)
-    return { score: 10, label: "Rubrik ganska kort — mer kontext kan öka nyfikenhet." };
+    return { score: 10, label: "Rubrik ganska kort — begränsad synlig kontext i listraden." };
   if (len <= 28)
     return { score: 16, label: "Rubrik kort men okej på mobil." };
   if (len <= 48)
@@ -88,13 +88,13 @@ function preheaderScore(
     if (subj.trim().length === 0) return { score: 0, label: "Ingen ingress." };
     return {
       score: 6,
-      label: "Tom ingress — du tappar ofta en andra chans att förklara värdet.",
+      label: "Tom ingress — ingressfältet används inte bredvid ämnesraden.",
     };
   }
   if (len < 18)
     return {
       score: 10,
-      label: "Kort ingress — fyll gärna ut med nyttig detalj (inte bara upprepning).",
+      label: "Kort ingress — få ord syns under rubriken i listvy.",
     };
   if (len <= 130)
     return {
@@ -103,7 +103,7 @@ function preheaderScore(
     };
   return {
     score: 14,
-    label: "Lång ingress — det mesta syns ändå inte; prioritera början.",
+    label: "Lång ingress — i listan visas oftast bara inledningen.",
   };
 }
 
@@ -151,14 +151,14 @@ export function computeSwedishOpenPotential(input: {
     raw += d;
     signals.push({
       delta: d,
-      label: "Ingress upprepar rubriken — lägg till ny information i stället.",
+      label: "Hög lexikal överlappning mellan rubrik och ingress.",
     });
   } else if (subject.length > 0 && preheader.length > 0 && overlap < 0.25) {
     const d = 6;
     raw += d;
     signals.push({
       delta: d,
-      label: "Ingress kompletterar rubriken — bra kombination.",
+      label: "Rubrik och ingress skiljer innehållsmässigt tydligt åt.",
     });
   }
 
@@ -224,7 +224,7 @@ export function computeSwedishOpenPotential(input: {
     raw += d;
     signals.push({
       delta: d,
-      label: "Frågeform kan öka nyfikenhet om den känns ärlig (inte klickbete).",
+      label: "Rubriken avslutas med frågetecken.",
     });
   }
 
@@ -233,7 +233,7 @@ export function computeSwedishOpenPotential(input: {
     raw += d;
     signals.push({
       delta: d,
-      label: "Konkret siffra i rubriken — ofta tydligare än fluff.",
+      label: "Rubriken innehåller minst en siffra.",
     });
   }
 
@@ -252,14 +252,14 @@ export function computeSwedishOpenPotential(input: {
     raw += d;
     signals.push({
       delta: d,
-      label: "En emoji kan sticka ut i svensk B2C — sparsamt bruk brukar funka bäst.",
+      label: "En emoji i ämnesrad eller ingress.",
     });
   } else if (emojiCount >= 4) {
     const d = -6;
     raw += d;
     signals.push({
       delta: d,
-      label: "Många emojis — risk att upplevas barnsligt eller “kampanjigt”.",
+      label: "Flera emojis i ämnesrad eller ingress.",
     });
   }
 

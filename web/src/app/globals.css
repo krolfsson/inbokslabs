@@ -1,8 +1,16 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-happy-monkey), var(--font-dm-sans), ui-sans-serif, system-ui,
+    sans-serif;
+  --font-display: var(--font-happy-monkey), var(--font-dm-sans), ui-sans-serif, system-ui,
+    sans-serif;
+
+  /* inbokslabs — indigo / cyan accent */
+  --color-brand: #4f46e5;
+  --color-brand-deep: #312e81;
+  --color-brand-tint: #e0e7ff;
+  --color-brand-surface: #eef2f8;
 }
 
 body {
@@ -10,8 +18,8 @@ body {
 }
 
 ::selection {
-  background: rgba(255, 92, 71, 0.25);
-  color: #18181b;
+  background: rgba(79, 70, 229, 0.2);
+  color: #111827;
 }
 
 /* Pasted email HTML preview — attribute hooks scope email content and export */
