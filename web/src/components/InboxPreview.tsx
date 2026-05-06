@@ -7,8 +7,8 @@ type Theme = "light" | "dark";
 type Platform = "iphone" | "android";
 type Client = "mail" | "gmail";
 
-/** Nordea varumärkesblå (approximation för mockup). */
-const NORDEA_BLUE = "#0482BB";
+/** Nordea-avatar (markerad blå enligt önskemål). */
+const NORDEA_BLUE = "#0000a0";
 
 function isNordeaSender(name: string): boolean {
   return name.trim().toLowerCase() === "nordea";
