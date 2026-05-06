@@ -9,7 +9,6 @@ import {
   useState,
 } from "react";
 import type { CSSProperties } from "react";
-import { LAYOUT } from "@/lib/inboxTypography";
 import {
   parseEmailForPreview,
   resolveRelativeAssetUrls,
@@ -17,7 +16,8 @@ import {
 } from "@/lib/emailHtmlUtils";
 import { sanitizeClonedDocumentForHtml2Canvas } from "@/lib/html2canvasCssFix";
 
-const W = LAYOUT.iphoneWidthPx;
+/** Full HTML preview artboard (typical email width). Inbox tabs still use 390px device mockups. */
+const W = 600;
 
 const EXPORT_SCALE = 3;
 
@@ -446,7 +446,7 @@ export function EmailHtmlDevicePreview({
               ? `${preview.styleTexts.length} &lt;style&gt; block(s) applied`
               : "no document styles (fragment only)"}
             {" "}
-            · scroll sideways for 600px layouts
+            · scroll if the design is wider than the frame
           </p>
           <div className="flex max-h-[min(78vh,880px)] justify-center overflow-auto pb-2">
             <div ref={captureRootRef} data-lith="frame" style={FRAME_OUTER}>
