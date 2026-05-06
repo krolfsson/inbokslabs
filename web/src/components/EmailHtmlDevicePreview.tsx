@@ -15,6 +15,7 @@ import {
   resolveRelativeAssetUrls,
   stripDangerousCss,
 } from "@/lib/emailHtmlUtils";
+import { sanitizeClonedDocumentForHtml2Canvas } from "@/lib/html2canvasCssFix";
 
 const W = LAYOUT.iphoneWidthPx;
 
@@ -194,6 +195,9 @@ export function EmailHtmlDevicePreview() {
         windowHeight: root.scrollHeight,
         foreignObjectRendering: false,
         imageTimeout: 15000,
+        onclone: (clonedDoc) => {
+          sanitizeClonedDocumentForHtml2Canvas(clonedDoc);
+        },
       });
 
       await new Promise<void>((res, rej) => {
