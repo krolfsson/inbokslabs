@@ -1,15 +1,13 @@
 "use client";
 
-const MAX_SUBJECT_IOS = 42;
-const MAX_PREVIEW_IOS = 78;
-const MAX_SUBJECT_GMAIL = 48;
-const MAX_PREVIEW_GMAIL = 72;
-
-function truncate(s: string, max: number) {
-  const t = s.trim();
-  if (t.length <= max) return t;
-  return t.slice(0, Math.max(0, max - 1)).trimEnd() + "…";
-}
+import {
+  GMAIL_BASE_SP,
+  IOS_BASE_PT,
+  LAYOUT,
+  androidFontScale,
+  iosTypeScale,
+  type TextSizePreset,
+} from "@/lib/inboxTypography";
 
 type Theme = "light" | "dark";
 
@@ -19,13 +17,26 @@ export function InboxPreview(props: {
   preheader: string;
   iosTheme: Theme;
   gmailTheme: Theme;
+  textSize: TextSizePreset;
 }) {
-  const { sender, subject, preheader, iosTheme, gmailTheme } = props;
+  const { sender, subject, preheader, iosTheme, gmailTheme, textSize } = props;
 
-  const subIos = truncate(subject, MAX_SUBJECT_IOS);
-  const prevIos = truncate(preheader, MAX_PREVIEW_IOS);
-  const subGm = truncate(subject, MAX_SUBJECT_GMAIL);
-  const prevGm = truncate(preheader, MAX_PREVIEW_GMAIL);
+  const iosM = iosTypeScale(textSize);
+  const andM = androidFontScale(textSize);
+
+  const ios = {
+    sender: IOS_BASE_PT.sender * iosM,
+    time: IOS_BASE_PT.time * iosM,
+    subject: IOS_BASE_PT.subject * iosM,
+    preview: IOS_BASE_PT.preview * iosM,
+  };
+
+  const gm = {
+    sender: GMAIL_BASE_SP.sender * andM,
+    time: GMAIL_BASE_SP.time * andM,
+    subject: GMAIL_BASE_SP.subject * andM,
+    preview: GMAIL_BASE_SP.preview * andM,
+  };
 
   const iosBg =
     iosTheme === "dark"
@@ -37,9 +48,9 @@ export function InboxPreview(props: {
       : "bg-white text-[#202124] border-[#e0e0e0]";
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-medium uppercase tracking-widest text-zinc-500">
             iPhone (Mail)
           </h2>
@@ -47,38 +58,93 @@ export function InboxPreview(props: {
             {iosTheme === "dark" ? "Dark" : "Light"}
           </span>
         </div>
+        <p className="text-[11px] leading-snug text-zinc-500">
+          {LAYOUT.iphoneWidthPx}px canvas · {LAYOUT.iosTextColumnPx}px text column · SF
+          Pro–driven sizes × Dynamic Type
+        </p>
+
         <div
-          className={`overflow-hidden rounded-[18px] border shadow-[0_20px_60px_-24px_rgba(0,0,0,0.6)] ${iosBg}`}
+          className={`mx-auto overflow-hidden rounded-[18px] border shadow-[0_20px_60px_-24px_rgba(0,0,0,0.6)] ${iosBg}`}
+          style={{ width: LAYOUT.iphoneWidthPx, maxWidth: "100%" }}
         >
-          <div className="border-b border-white/10 bg-black/10 px-4 py-2 text-center text-[11px] font-medium tracking-wide text-zinc-500">
-            Inbox
+          <div className="border-b border-white/10 bg-black/10 px-4 py-2 text-center font-medium tracking-wide text-zinc-500">
+            <span style={{ fontSize: Math.round(11 * iosM) }}>Inbox</span>
           </div>
-          <div className="px-3 py-2">
-            <div className="flex gap-3 rounded-xl px-2 py-2.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-rose-500 text-sm font-semibold text-white">
+          <div
+            className="py-2 pr-4"
+            style={{
+              paddingLeft: LAYOUT.iosHorizontalPaddingPx,
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-rose-500 font-semibold text-white"
+                style={{
+                  width: LAYOUT.iosAvatarPx,
+                  height: LAYOUT.iosAvatarPx,
+                  fontSize: Math.max(10, Math.round(12 * iosM)),
+                }}
+              >
                 {initials(sender)}
               </div>
-              <div className="min-w-0 flex-1">
+              <div
+                className="min-w-0 shrink"
+                style={{
+                  width: LAYOUT.iosTextColumnPx,
+                  maxWidth: LAYOUT.iosTextColumnPx,
+                }}
+              >
                 <div className="flex items-baseline justify-between gap-2">
                   <span
-                    className={`truncate text-[15px] font-semibold leading-tight ${iosTheme === "dark" ? "text-white" : "text-black"}`}
-                    style={{ fontFamily: "system-ui, -apple-system, SF Pro Text, sans-serif" }}
+                    className={`truncate font-semibold leading-tight ${iosTheme === "dark" ? "text-white" : "text-black"}`}
+                    style={{
+                      fontFamily:
+                        'system-ui, -apple-system, "SF Pro Text", "SF Pro Display", sans-serif',
+                      fontSize: ios.sender,
+                      lineHeight: 1.25,
+                      letterSpacing: ios.sender >= 17 ? "-0.24px" : "-0.2px",
+                    }}
                   >
                     {sender || "Sender"}
                   </span>
-                  <span className="shrink-0 text-[13px] text-zinc-500">9:41 AM</span>
+                  <span
+                    className="shrink-0 text-zinc-500"
+                    style={{
+                      fontFamily:
+                        'system-ui, -apple-system, "SF Pro Text", sans-serif',
+                      fontSize: ios.time,
+                      lineHeight: 1.2,
+                      fontWeight: 400,
+                    }}
+                  >
+                    9:41 AM
+                  </span>
                 </div>
                 <p
-                  className={`mt-0.5 line-clamp-1 text-[15px] font-semibold leading-snug ${iosTheme === "dark" ? "text-white" : "text-black"}`}
-                  style={{ fontFamily: "system-ui, -apple-system, SF Pro Text, sans-serif" }}
+                  className={`truncate font-semibold leading-snug ${iosTheme === "dark" ? "text-white" : "text-black"}`}
+                  style={{
+                    fontFamily:
+                      'system-ui, -apple-system, "SF Pro Text", sans-serif',
+                    fontSize: ios.subject,
+                    lineHeight: 1.26,
+                    marginTop: "2px",
+                    letterSpacing: "-0.3px",
+                  }}
                 >
-                  {subIos}
+                  {subject || " "}
                 </p>
                 <p
-                  className={`mt-0.5 line-clamp-2 text-[15px] leading-snug ${iosTheme === "dark" ? "text-zinc-400" : "text-zinc-500"}`}
-                  style={{ fontFamily: "system-ui, -apple-system, SF Pro Text, sans-serif" }}
+                  className={`line-clamp-2 leading-snug ${iosTheme === "dark" ? "text-zinc-400" : "text-zinc-500"}`}
+                  style={{
+                    fontFamily:
+                      'system-ui, -apple-system, "SF Pro Text", sans-serif',
+                    fontWeight: 400,
+                    fontSize: ios.preview,
+                    lineHeight: 1.28,
+                    marginTop: "1px",
+                  }}
                 >
-                  {prevIos}
+                  {preheader || " "}
                 </p>
               </div>
             </div>
@@ -87,7 +153,7 @@ export function InboxPreview(props: {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-medium uppercase tracking-widest text-zinc-500">
             Android (Gmail)
           </h2>
@@ -95,47 +161,100 @@ export function InboxPreview(props: {
             {gmailTheme === "dark" ? "Dark" : "Light"}
           </span>
         </div>
+        <p className="text-[11px] leading-snug text-zinc-500">
+          {LAYOUT.gmailWidthDp}dp canvas · {LAYOUT.gmailTextColumnPx}px text column · Roboto
+          @ sp × fontScale
+        </p>
+
         <div
-          className={`overflow-hidden rounded-[18px] border shadow-[0_20px_60px_-24px_rgba(0,0,0,0.6)] ${gmailBg}`}
+          className={`mx-auto overflow-hidden rounded-[18px] border shadow-[0_20px_60px_-24px_rgba(0,0,0,0.6)] ${gmailBg}`}
+          style={{ width: LAYOUT.gmailWidthDp, maxWidth: "100%" }}
         >
           <div
-            className={`border-b px-4 py-2 text-center text-[12px] font-medium ${gmailTheme === "dark" ? "border-[#3c4043] text-zinc-400" : "border-zinc-200 text-zinc-500"}`}
+            className={`border-b px-4 py-2 text-center font-medium ${gmailTheme === "dark" ? "border-[#3c4043] text-zinc-400" : "border-zinc-200 text-zinc-500"}`}
           >
-            Primary
+            <span
+              style={{
+                fontFamily: '"Roboto", sans-serif',
+                fontSize: Math.round(12 * andM),
+                fontWeight: 500,
+              }}
+            >
+              Primary
+            </span>
           </div>
-          <div className="flex gap-3 px-3 py-3">
+          <div
+            className="flex items-start gap-3 py-3 pr-4"
+            style={{ paddingLeft: LAYOUT.gmailHorizontalPaddingPx }}
+          >
             <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
+              className={`flex shrink-0 items-center justify-center rounded-full font-medium ${
                 gmailTheme === "dark"
                   ? "bg-[#5f6368] text-white"
                   : "bg-[#1a73e8] text-white"
               }`}
+              style={{
+                width: LAYOUT.gmailAvatarPx,
+                height: LAYOUT.gmailAvatarPx,
+                fontSize: Math.round(13 * andM),
+              }}
             >
               {initials(sender)}
             </div>
-            <div className="min-w-0 flex-1">
+            <div
+              className="min-w-0 shrink"
+              style={{
+                width: LAYOUT.gmailTextColumnPx,
+                maxWidth: LAYOUT.gmailTextColumnPx,
+              }}
+            >
               <div className="flex items-baseline justify-between gap-2">
                 <span
-                  className="truncate text-[14px] font-medium"
-                  style={{ fontFamily: "Roboto, Helvetica, Arial, sans-serif" }}
+                  className="truncate"
+                  style={{
+                    fontFamily: '"Roboto", "Roboto Draft", "Helvetica Neue", Helvetica, Arial, sans-serif',
+                    fontWeight: 500,
+                    fontSize: gm.sender,
+                    lineHeight: 1.35,
+                    letterSpacing: "0.00625em",
+                  }}
                 >
                   {sender || "Sender"}
                 </span>
                 <span
-                  className={`shrink-0 text-[12px] ${gmailTheme === "dark" ? "text-[#9aa0a6]" : "text-[#5f6368]"}`}
+                  className={`shrink-0 ${gmailTheme === "dark" ? "text-[#9aa0a6]" : "text-[#5f6368]"}`}
+                  style={{
+                    fontFamily: '"Roboto", sans-serif',
+                    fontWeight: 400,
+                    fontSize: gm.time,
+                    lineHeight: 1.3,
+                  }}
                 >
                   9:41 AM
                 </span>
               </div>
               <p
-                className="mt-0.5 line-clamp-2 text-[14px] leading-snug"
-                style={{ fontFamily: "Roboto, Helvetica, Arial, sans-serif" }}
+                className="truncate font-medium leading-snug"
+                style={{
+                  fontFamily: '"Roboto", sans-serif',
+                  fontSize: gm.subject,
+                  lineHeight: 1.4,
+                  marginTop: "2px",
+                }}
               >
-                <span className="font-medium">{subGm}</span>
-                <span className={gmailTheme === "dark" ? " text-[#bdc1c6]" : " text-[#5f6368]"}>
-                  {" "}
-                  — {prevGm}
-                </span>
+                {subject || " "}
+              </p>
+              <p
+                className={`line-clamp-2 leading-snug ${gmailTheme === "dark" ? "text-[#bdc1c6]" : "text-[#5f6368]"}`}
+                style={{
+                  fontFamily: '"Roboto", sans-serif',
+                  fontWeight: 400,
+                  fontSize: gm.preview,
+                  lineHeight: 1.45,
+                  marginTop: "2px",
+                }}
+              >
+                {preheader || " "}
               </p>
             </div>
           </div>

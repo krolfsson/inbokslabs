@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { InboxPreview } from "@/components/InboxPreview";
+import {
+  TEXT_SIZE_OPTIONS,
+  type TextSizePreset,
+} from "@/lib/inboxTypography";
 
 export function PreviewLab() {
   const [sender, setSender] = useState("Lithmuth");
@@ -13,6 +17,7 @@ export function PreviewLab() {
   );
   const [iosTheme, setIosTheme] = useState<"light" | "dark">("light");
   const [gmailTheme, setGmailTheme] = useState<"light" | "dark">("light");
+  const [textSize, setTextSize] = useState<TextSizePreset>("large");
 
   const counts = useMemo(() => {
     return {
@@ -36,7 +41,35 @@ export function PreviewLab() {
               placeholder="Company or person"
             />
           </label>
-          <div className="grid grid-cols-2 gap-4">
+          <label className="block space-y-2">
+            <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Text size (display & content)
+            </span>
+            <select
+              value={textSize}
+              onChange={(e) =>
+                setTextSize(e.target.value as TextSizePreset)
+              }
+              title={
+                TEXT_SIZE_OPTIONS.find((o) => o.value === textSize)
+                  ?.description
+              }
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none"
+            >
+              {TEXT_SIZE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value} title={o.description}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-zinc-600">
+              {
+                TEXT_SIZE_OPTIONS.find((o) => o.value === textSize)
+                  ?.description
+              }
+            </p>
+          </label>
+          <div className="grid grid-cols-2 gap-4 md:col-span-2">
             <label className="block space-y-2">
               <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
                 iPhone theme
@@ -99,9 +132,13 @@ export function PreviewLab() {
           />
         </label>
 
-        <p className="mt-4 text-xs text-zinc-500">
-          Truncation is approximate — real clients vary by font, scale, and width.
-          Use this as a fast gut-check before devices and Litmus.
+        <p className="mt-4 text-xs leading-relaxed text-zinc-500">
+          Sizes follow Apple’s Dynamic Type ratios (vs default Large) on the iPhone
+          mock and Android font-scale presets on Gmail — not the same numbers as each
+          other, like real OS settings. Truncation uses the same fixed column widths as
+          the reference canvases (ellipsis), not a character cap. Pixel-perfect vs
+          production Mail/Gmail still varies by OS version, weight, and real device
+          font metrics.
         </p>
       </div>
 
@@ -111,6 +148,7 @@ export function PreviewLab() {
         preheader={preheader}
         iosTheme={iosTheme}
         gmailTheme={gmailTheme}
+        textSize={textSize}
       />
     </div>
   );
