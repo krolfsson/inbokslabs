@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { EmailHtmlDevicePreview } from "@/components/EmailHtmlDevicePreview";
 import { InboxPreview } from "@/components/InboxPreview";
+import { OpenPotentialMeter } from "@/components/OpenPotentialMeter";
 import { TextSizeControl } from "@/components/TextSizeControl";
 import { scalesAtStep } from "@/lib/inboxTypography";
 
@@ -151,6 +152,12 @@ export function PreviewWorkbench() {
                     onChange={setTextStep}
                   />
                 </div>
+
+                <OpenPotentialMeter
+                  sender={sender}
+                  subject={subject}
+                  preheader={preheader}
+                />
               </div>
             </div>
 
