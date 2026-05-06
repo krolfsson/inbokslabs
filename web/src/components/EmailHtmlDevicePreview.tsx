@@ -244,6 +244,128 @@ type PreviewPayload = {
   bodyStyle?: string;
 };
 
+const EMAIL_SCOPE = "[data-email-root]";
+const EMAIL_BODY_SCOPE = `${EMAIL_SCOPE} .email-preview-body`;
+
+function splitSelectorList(selectors: string): string[] {
+  const out: string[] = [];
+  let start = 0;
+  let parens = 0;
+  let brackets = 0;
+  let quote: string | null = null;
+
+  for (let i = 0; i < selectors.length; i++) {
+    const c = selectors[i];
+    if (quote) {
+      if (c === quote && selectors[i - 1] !== "\\") quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+      continue;
+    }
+    if (c === "(") parens++;
+    else if (c === ")") parens = Math.max(0, parens - 1);
+    else if (c === "[") brackets++;
+    else if (c === "]") brackets = Math.max(0, brackets - 1);
+    else if (c === "," && parens === 0 && brackets === 0) {
+      out.push(selectors.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+
+  out.push(selectors.slice(start).trim());
+  return out.filter(Boolean);
+}
+
+function prefixEmailSelector(selector: string): string {
+  const s = selector.trim();
+  if (!s) return s;
+  if (s.startsWith(EMAIL_SCOPE)) return s;
+
+  if (s === ":root" || s === "html" || s === "body" || s === "#acr-body") {
+    return EMAIL_BODY_SCOPE;
+  }
+
+  const withoutDoc = s
+    .replace(/^:root(?=$|[\s>+~.#[:])/i, EMAIL_SCOPE)
+    .replace(/^html(?=$|[\s>+~.#[:])/i, EMAIL_SCOPE)
+    .replace(/^body(?=$|[\s>+~.#[:])/i, EMAIL_BODY_SCOPE);
+
+  if (withoutDoc !== s) return withoutDoc;
+  return `${EMAIL_SCOPE} ${s}`;
+}
+
+function prefixEmailRuleSelectors(selectors: string): string {
+  return splitSelectorList(selectors).map(prefixEmailSelector).join(", ");
+}
+
+function findRuleClose(css: string, openIdx: number): number {
+  let depth = 1;
+  let quote: string | null = null;
+
+  for (let i = openIdx + 1; i < css.length; i++) {
+    const c = css[i];
+    if (quote) {
+      if (c === quote && css[i - 1] !== "\\") quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+      continue;
+    }
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+
+  return -1;
+}
+
+function scopeEmailCss(css: string): string {
+  let out = "";
+  let i = 0;
+
+  while (i < css.length) {
+    const open = css.indexOf("{", i);
+    if (open === -1) {
+      out += css.slice(i);
+      break;
+    }
+
+    const prelude = css.slice(i, open);
+    const trimmedPrelude = prelude.trim();
+    const close = findRuleClose(css, open);
+    if (close === -1) {
+      out += css.slice(i);
+      break;
+    }
+
+    const inner = css.slice(open + 1, close);
+    if (trimmedPrelude.startsWith("@")) {
+      const atName = trimmedPrelude.match(/^@[\w-]+/)?.[0]?.toLowerCase();
+      if (
+        atName === "@media" ||
+        atName === "@supports" ||
+        atName === "@container" ||
+        atName === "@layer"
+      ) {
+        out += `${prelude}{${scopeEmailCss(inner)}}`;
+      } else {
+        out += css.slice(i, close + 1);
+      }
+    } else {
+      out += `${prefixEmailRuleSelectors(prelude)}{${inner}}`;
+    }
+
+    i = close + 1;
+  }
+
+  return out;
+}
+
 export function EmailHtmlDevicePreview({
   embedded = false,
 }: {
@@ -269,7 +391,9 @@ export function EmailHtmlDevicePreview({
         assetBaseUrl,
       );
       const cleanBody = DOMPurify.sanitize(withUrls, PURIFY_BODY);
-      const styleTexts = parsed.styleTexts.map(stripDangerousCss);
+      const styleTexts = parsed.styleTexts.map((css) =>
+        scopeEmailCss(stripDangerousCss(css)),
+      );
       if (!cancelled) {
         setPreview({
           styleTexts,
