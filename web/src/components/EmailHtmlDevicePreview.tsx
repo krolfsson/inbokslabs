@@ -498,33 +498,57 @@ export function EmailHtmlDevicePreview({
       ),
     );
 
+  const createExportClone = (source: HTMLElement) => {
+    const host = document.createElement("div");
+    host.setAttribute("data-export-host", "true");
+    host.style.position = "fixed";
+    host.style.left = "-100000px";
+    host.style.top = "0";
+    host.style.zIndex = "-1";
+    host.style.background = "transparent";
+    host.style.pointerEvents = "none";
+    host.style.width = `${source.scrollWidth}px`;
+
+    const clone = source.cloneNode(true) as HTMLElement;
+    clone.style.boxShadow = "none";
+
+    const clonedScreen = clone.querySelector<HTMLElement>('[data-lith="screen"]');
+    const clonedEmail = clone.querySelector<HTMLElement>('[data-lith="scroll"]');
+
+    if (clonedScreen) {
+      clonedScreen.style.overflow = "hidden";
+      clonedScreen.style.height = "auto";
+      clonedScreen.style.maxHeight = "none";
+    }
+
+    if (clonedEmail) {
+      clonedEmail.style.height = "auto";
+      clonedEmail.style.minHeight = `${Math.max(
+        emailInnerRef.current?.scrollHeight ?? 0,
+        420,
+      )}px`;
+      clonedEmail.style.maxHeight = "none";
+      clonedEmail.style.overflow = "visible";
+      clonedEmail.style.overflowX = "visible";
+      clonedEmail.style.overflowY = "visible";
+    }
+
+    host.appendChild(clone);
+    document.body.appendChild(host);
+    return { host, clone };
+  };
+
   const savePng = useCallback(async () => {
     const root = captureRootRef.current;
     const inner = emailInnerRef.current;
-    const screen = frameScreenRef.current;
     if (!root || !inner || !hasContent) return;
 
     setExporting(true);
     setExportError(null);
 
-    const prevH = inner.style.height;
-    const prevMinH = inner.style.minHeight;
-    const prevOverflowX = inner.style.overflowX;
-    const prevOverflowY = inner.style.overflowY;
-    const prevMaxH = inner.style.maxHeight;
-    const prevScreenOv = screen?.style.overflow;
+    let exportHost: HTMLDivElement | null = null;
 
     try {
-      if (screen) screen.style.overflow = "visible";
-
-      const h = Math.max(inner.scrollHeight, inner.clientHeight, 420);
-      inner.style.height = `${h}px`;
-      inner.style.minHeight = `${h}px`;
-      inner.style.maxHeight = "none";
-      inner.style.removeProperty("overflow");
-      inner.style.overflowX = "visible";
-      inner.style.overflowY = "visible";
-
       await flushLayout();
       await waitForImages(inner);
       if (typeof document !== "undefined" && document.fonts?.ready) {
@@ -536,13 +560,29 @@ export function EmailHtmlDevicePreview({
       }
       await flushLayout();
 
-      const canvas = await html2canvas(root, {
+      const { host, clone } = createExportClone(root);
+      exportHost = host;
+
+      await flushLayout();
+      await waitForImages(clone);
+      await flushLayout();
+
+      const exportWidth = clone.scrollWidth;
+      const exportHeight = Math.max(clone.scrollHeight, clone.offsetHeight);
+
+      const canvas = await html2canvas(clone, {
         scale: EXPORT_SCALE,
         useCORS: true,
         logging: false,
         backgroundColor: "#1c1c1e",
         foreignObjectRendering: false,
         imageTimeout: 20000,
+        width: exportWidth,
+        height: exportHeight,
+        windowWidth: exportWidth,
+        windowHeight: exportHeight,
+        scrollX: 0,
+        scrollY: 0,
         onclone: (clonedDoc) => {
           sanitizeClonedDocumentForHtml2Canvas(clonedDoc);
         },
@@ -571,13 +611,7 @@ export function EmailHtmlDevicePreview({
       const msg = e instanceof Error ? e.message : "Export failed.";
       setExportError(msg);
     } finally {
-      inner.style.height = prevH;
-      inner.style.minHeight = prevMinH;
-      inner.style.maxHeight = prevMaxH;
-      inner.style.removeProperty("overflow");
-      inner.style.overflowX = prevOverflowX || "auto";
-      inner.style.overflowY = prevOverflowY || "auto";
-      if (screen) screen.style.overflow = prevScreenOv ?? "";
+      exportHost?.remove();
       setExporting(false);
     }
   }, [hasContent]);
