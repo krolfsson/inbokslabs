@@ -9,10 +9,8 @@ import { scalesAtStep } from "@/lib/inboxTypography";
 const field =
   "w-full rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 text-[15px] text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]";
 
-const select =
-  "w-full rounded-2xl border border-transparent bg-zinc-100/80 px-4 py-3 text-[15px] text-zinc-950 outline-none transition focus:border-zinc-300 focus:bg-white focus:shadow-[0_0_0_4px_rgba(0,0,0,0.04)]";
-
 type TabId = "inbox" | "email";
+type Theme = "light" | "dark";
 
 const tabs: { id: TabId; label: string }[] = [
   { id: "inbox", label: "Inbox" },
@@ -29,8 +27,10 @@ export function PreviewWorkbench() {
   const [preheader, setPreheader] = useState(
     "Plus: one habit teams use before hitting send on big campaigns.",
   );
-  const [iosTheme, setIosTheme] = useState<"light" | "dark">("light");
-  const [gmailTheme, setGmailTheme] = useState<"light" | "dark">("light");
+  const [iphoneMailTheme, setIphoneMailTheme] = useState<Theme>("light");
+  const [iphoneGmailTheme, setIphoneGmailTheme] = useState<Theme>("light");
+  const [androidMailTheme, setAndroidMailTheme] = useState<Theme>("light");
+  const [androidGmailTheme, setAndroidGmailTheme] = useState<Theme>("light");
   const [textStep, setTextStep] = useState(3);
 
   const { ios: iosScale, android: androidScale } = useMemo(
@@ -151,39 +151,6 @@ export function PreviewWorkbench() {
                     onChange={setTextStep}
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <label className="block space-y-2">
-                    <span className="text-xs font-medium text-zinc-500">
-                      iPhone
-                    </span>
-                    <select
-                      value={iosTheme}
-                      onChange={(e) =>
-                        setIosTheme(e.target.value as "light" | "dark")
-                      }
-                      className={select}
-                    >
-                      <option value="light">Light</option>
-                      <option value="dark">Dark</option>
-                    </select>
-                  </label>
-                  <label className="block space-y-2">
-                    <span className="text-xs font-medium text-zinc-500">
-                      Gmail
-                    </span>
-                    <select
-                      value={gmailTheme}
-                      onChange={(e) =>
-                        setGmailTheme(e.target.value as "light" | "dark")
-                      }
-                      className={select}
-                    >
-                      <option value="light">Light</option>
-                      <option value="dark">Dark</option>
-                    </select>
-                  </label>
-                </div>
               </div>
             </div>
 
@@ -192,8 +159,14 @@ export function PreviewWorkbench() {
                 sender={sender}
                 subject={subject}
                 preheader={preheader}
-                iosTheme={iosTheme}
-                gmailTheme={gmailTheme}
+                iphoneMailTheme={iphoneMailTheme}
+                iphoneGmailTheme={iphoneGmailTheme}
+                androidMailTheme={androidMailTheme}
+                androidGmailTheme={androidGmailTheme}
+                onIphoneMailThemeChange={setIphoneMailTheme}
+                onIphoneGmailThemeChange={setIphoneGmailTheme}
+                onAndroidMailThemeChange={setAndroidMailTheme}
+                onAndroidGmailThemeChange={setAndroidGmailTheme}
                 iosScale={iosScale}
                 androidScale={androidScale}
               />
