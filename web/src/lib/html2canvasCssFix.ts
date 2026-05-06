@@ -65,6 +65,15 @@ export function stripLithCaptureClasses(doc: Document): void {
   });
 }
 
+function removeNonEmailStyles(doc: Document): void {
+  doc.querySelectorAll('link[rel="stylesheet"]').forEach((el) => el.remove());
+  doc.querySelectorAll("style").forEach((node) => {
+    if (!node.closest("[data-email-root]")) {
+      node.remove();
+    }
+  });
+}
+
 function stripPaintAttributes(el: Element): void {
   for (const attr of ["fill", "stroke", "flood-color", "lighting-color"] as const) {
     const v = el.getAttribute(attr);
@@ -76,6 +85,7 @@ function stripPaintAttributes(el: Element): void {
 
 export function sanitizeClonedDocumentForHtml2Canvas(doc: Document): void {
   stripLithCaptureClasses(doc);
+  removeNonEmailStyles(doc);
   doc.querySelectorAll("style").forEach((node) => {
     const el = node as HTMLStyleElement;
     if (el.textContent) {

@@ -96,14 +96,14 @@ function inlineStyleToObject(css: string | undefined): CSSProperties | undefined
 /** No Tailwind on capture subtree — TW4 uses oklch/lab; html2canvas parser dies. */
 const FRAME_OUTER: CSSProperties = {
   display: "inline-block",
-  borderRadius: 40,
-  border: "12px solid #1c1c1e",
+  borderRadius: 34,
+  border: "8px solid #1c1c1e",
   backgroundColor: "#1c1c1e",
-  boxShadow: "0 24px 64px -12px rgba(0,0,0,0.35)",
+  boxShadow: "0 22px 58px -18px rgba(0,0,0,0.35)",
 };
 
 const FRAME_SCREEN: CSSProperties = {
-  borderRadius: 32,
+  borderRadius: 26,
   overflow: "hidden",
   backgroundColor: "#ffffff",
 };
@@ -116,6 +116,8 @@ const FRAME_SCROLL: CSSProperties = {
   overflowWrap: "anywhere",
   width: W,
   minWidth: 0,
+  minHeight: 420,
+  backgroundColor: "#ffffff",
   boxSizing: "border-box",
 };
 
@@ -458,7 +460,7 @@ export function EmailHtmlDevicePreview({
     try {
       if (screen) screen.style.overflow = "visible";
 
-      const h = inner.scrollHeight;
+      const h = Math.max(inner.scrollHeight, inner.clientHeight, 420);
       inner.style.height = `${h}px`;
       inner.style.minHeight = `${h}px`;
       inner.style.maxHeight = "none";
