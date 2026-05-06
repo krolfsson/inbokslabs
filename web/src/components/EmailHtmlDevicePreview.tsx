@@ -541,7 +541,7 @@ export function EmailHtmlDevicePreview({
         useCORS: true,
         logging: false,
         backgroundColor: "#1c1c1e",
-        foreignObjectRendering: true,
+        foreignObjectRendering: false,
         imageTimeout: 20000,
         onclone: (clonedDoc) => {
           sanitizeClonedDocumentForHtml2Canvas(clonedDoc);
