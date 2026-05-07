@@ -1,34 +1,57 @@
 /**
  * If the paste looks like a raw RFC message (.eml), extracts and decodes the
- * best `text/html` part; otherwise returns the input unchanged.
+ * best body part (HTML preferred, plain text wrapped as &lt;pre&gt; otherwise).
+ * Returns the input unchanged if it doesn't look like an email source.
  */
 export function normalizeEmailHtmlInput(raw: string): string {
-  const extracted = extractHtmlFromRawEmailSource(raw.trim());
+  const extracted = extractHtmlFromRawEmailSource(stripLeadingBom(raw).trim());
   return extracted ?? raw;
+}
+
+function stripLeadingBom(s: string): string {
+  if (!s) return s;
+  return s.charCodeAt(0) === 0xfeff ? s.slice(1) : s;
+}
+
+function stripLeadingMboxFrom(s: string): string {
+  return s.replace(/^From\s[^\n]*\n/, "");
 }
 
 /** True when the string plausibly contains MIME headers + parts (not plain HTML). */
 export function looksLikeRawEmailPaste(s: string): boolean {
-  const t = s.trimStart();
-  if (t.length < 120) return false;
+  const t = stripLeadingMboxFrom(stripLeadingBom(s).trimStart());
+  if (t.length < 40) return false;
 
   let score = 0;
   if (/^MIME-Version:\s/im.test(t)) score++;
-  if (/^Content-Type:\s/im.test(t)) score++;
+  if (/^Content-Type:\s/im.test(t)) score += 2;
   if (/^Subject:\s/im.test(t)) score++;
   if (/^Received:\s/im.test(t)) score++;
   if (/^Return-Path:\s/im.test(t)) score++;
   if (/^Delivered-To:\s/im.test(t)) score++;
   if (/^Message-ID:\s/im.test(t)) score++;
   if (/^DKIM-Signature:\s/im.test(t)) score++;
+  if (/^From:\s/im.test(t)) score++;
+  if (/^To:\s/im.test(t)) score++;
+  if (/^Date:\s/im.test(t)) score++;
   if (/--[^\n\r]+\r?\nContent-Type:/i.test(t)) score += 2;
   if (/boundary\s*=\s*["']?[^"'\s;]+/i.test(t)) score++;
 
-  return score >= 3;
+  if (score >= 3) return true;
+
+  /* Fallback: a top-level multipart Content-Type with boundary alone is a strong signal. */
+  if (
+    /^Content-Type:\s*multipart\/[a-z]+\s*;[\s\S]*?boundary\s*=/im.test(t)
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function splitHeadersAndBody(raw: string): [string, string | undefined] {
-  const n = raw.replace(/\r\n/g, "\n");
+  /* Normalize all flavors of newline (CRLF, lone CR) to LF before searching. */
+  const n = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const idx = n.search(/\n\n/);
   if (idx === -1) return [n, undefined];
   return [n.slice(0, idx), n.slice(idx + 2)];
@@ -199,80 +222,169 @@ function getBoundary(contentTypeValue: string): string | undefined {
   return getMimeParam(contentTypeValue, "boundary");
 }
 
-function extractHtmlFromMultipart(
+type FoundParts = { html?: string; plain?: string };
+
+function collectFromMultipart(
   mimeBody: string,
   contentTypeHeaderValue: string,
-): string | null {
+): FoundParts {
   const b = getBoundary(contentTypeHeaderValue);
-  if (!b) return null;
-  const subType = contentTypeHeaderValue
-    .split(";")[0]
-    ?.trim()
-    .toLowerCase();
+  if (!b) return {};
+  const subType =
+    contentTypeHeaderValue.split(";")[0]?.trim().toLowerCase() ?? "";
 
   const subparts = parseMultipartParts(mimeBody, b);
-
-  if (subType === "multipart/alternative") {
-    let lastHtml: string | null = null;
-    for (const sp of subparts) {
-      const mime = (sp.headers["content-type"] || "")
-        .split(";")[0]
-        ?.trim()
-        .toLowerCase();
-      if (mime === "text/html" || mime === "application/xhtml+xml") {
-        const inner = extractHtmlFromPartTree(sp.body, sp.headers);
-        if (inner) lastHtml = inner;
-      }
-    }
-    return lastHtml;
-  }
+  const result: FoundParts = {};
+  const isAlternative = subType === "multipart/alternative";
 
   for (const sp of subparts) {
-    const inner = extractHtmlFromPartTree(sp.body, sp.headers);
-    if (inner) return inner;
+    const sub = collectFromPartTree(sp.body, sp.headers);
+    if (sub.html) {
+      /* multipart/alternative: keep the LAST (richest) — typically text/html;
+         other multiparts (mixed/related): keep the FIRST. */
+      if (isAlternative || !result.html) result.html = sub.html;
+    }
+    if (sub.plain) {
+      if (isAlternative || !result.plain) result.plain = sub.plain;
+    }
   }
-  return null;
+
+  return result;
 }
 
-function extractHtmlFromPartTree(
+function collectFromPartTree(
   partBody: string,
   headers: Record<string, string>,
-): string | null {
+): FoundParts {
   const ctFull = headers["content-type"] || "";
   const mime = ctFull.split(";")[0]?.trim().toLowerCase() || "";
 
   if (mime.startsWith("multipart/")) {
-    return extractHtmlFromMultipart(partBody, ctFull);
+    return collectFromMultipart(partBody, ctFull);
   }
   if (mime === "text/html" || mime === "application/xhtml+xml") {
-    return decodePartBody(partBody, headers);
+    return { html: decodePartBody(partBody, headers) };
   }
+  if (mime === "text/plain" || mime === "") {
+    return { plain: decodePartBody(partBody, headers) };
+  }
+  return {};
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function plainTextToHtml(text: string): string {
+  return `<pre style="white-space:pre-wrap;word-wrap:break-word;font:14px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111;margin:0;padding:24px;background:#fff;">${escapeHtml(text)}</pre>`;
+}
+
+/**
+ * Returns decoded body HTML from a raw RFC-5322 / MIME string. Prefers `text/html`,
+ * but if only `text/plain` is present, wraps it as preformatted HTML so the
+ * preview at least shows the text. Returns `null` for non-email pastes.
+ */
+export function extractHtmlFromRawEmailSource(raw: string): string | null {
+  const cleaned = stripLeadingMboxFrom(stripLeadingBom(raw).trim());
+  if (!cleaned || !looksLikeRawEmailPaste(cleaned)) return null;
+
+  const [headerBlock, mimeBody] = splitHeadersAndBody(cleaned);
+  if (mimeBody === undefined) return null;
+
+  const topHeaders = parseHeaderBlock(headerBlock);
+  const found = collectFromPartTree(mimeBody, topHeaders);
+
+  if (found.html) return found.html;
+  if (found.plain) return plainTextToHtml(found.plain);
   return null;
 }
 
 /**
- * Returns decoded `text/html` from a raw RFC-5322 / MIME string, or `null`.
+ * Result of attempting to read an uploaded/dropped file as text.
+ * - `text`: decoded text (UTF-8/16 BOMs and naive heuristics applied).
+ * - `msg-binary`: an Outlook .msg / Compound File Binary (OLE) container — needs to
+ *   be re-saved as .eml or HTML by the user.
+ * - `unsupported`: file is empty or otherwise not decodable.
  */
-export function extractHtmlFromRawEmailSource(raw: string): string | null {
-  const t = raw.trim();
-  if (!t || !looksLikeRawEmailPaste(t)) return null;
+export type EmailFileLoadResult =
+  | { kind: "text"; text: string }
+  | { kind: "msg-binary" }
+  | { kind: "unsupported" };
 
-  const [headerBlock, mimeBody] = splitHeadersAndBody(t);
-  if (mimeBody === undefined) return null;
+const MS_CFB_MAGIC = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1] as const;
 
-  const topHeaders = parseHeaderBlock(headerBlock);
-  const topCt = topHeaders["content-type"] || "";
+function startsWithBytes(bytes: Uint8Array, prefix: readonly number[]): boolean {
+  if (bytes.length < prefix.length) return false;
+  for (let i = 0; i < prefix.length; i++) {
+    if (bytes[i] !== prefix[i]) return false;
+  }
+  return true;
+}
 
-  if (topCt.toLowerCase().includes("multipart/")) {
-    return extractHtmlFromMultipart(mimeBody, topCt);
+/**
+ * Decode an uploaded/dropped email file robustly.
+ *
+ * Why this is needed: the new Outlook on Windows often saves `.eml` as UTF-16 LE,
+ * `FileReader.readAsText()` defaults to UTF-8 and silently produces null-padded
+ * garbage. Some Outlook variants also produce real `.msg` (OLE) instead of `.eml`.
+ */
+export async function readEmailFileAsText(file: File): Promise<EmailFileLoadResult> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length === 0) return { kind: "unsupported" };
+
+  if (startsWithBytes(bytes, MS_CFB_MAGIC)) return { kind: "msg-binary" };
+
+  /* Explicit BOM → trustworthy. */
+  if (
+    bytes.length >= 3 &&
+    bytes[0] === 0xef &&
+    bytes[1] === 0xbb &&
+    bytes[2] === 0xbf
+  ) {
+    return {
+      kind: "text",
+      text: new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(3)),
+    };
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return {
+      kind: "text",
+      text: new TextDecoder("utf-16le").decode(bytes.subarray(2)),
+    };
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return {
+      kind: "text",
+      text: new TextDecoder("utf-16be").decode(bytes.subarray(2)),
+    };
   }
 
-  const mime = topCt.split(";")[0]?.trim().toLowerCase() || "";
-  if (mime === "text/html" || mime === "application/xhtml+xml") {
-    return decodePartBody(mimeBody, topHeaders);
+  /* Heuristic for UTF-16 without BOM: count nulls in the first 4 KB. */
+  const sampleEnd = Math.min(4096, bytes.length);
+  let evenNulls = 0;
+  let oddNulls = 0;
+  for (let i = 0; i < sampleEnd; i++) {
+    if (bytes[i] === 0) {
+      if (i % 2 === 0) evenNulls++;
+      else oddNulls++;
+    }
+  }
+  const nullRatio = (evenNulls + oddNulls) / Math.max(1, sampleEnd);
+  if (nullRatio > 0.2) {
+    const enc = oddNulls > evenNulls ? "utf-16le" : "utf-16be";
+    return { kind: "text", text: new TextDecoder(enc).decode(bytes) };
   }
 
-  return null;
+  return {
+    kind: "text",
+    text: new TextDecoder("utf-8", { fatal: false }).decode(bytes),
+  };
 }
 
 /** Parsed email for in-browser preview (must run in a browser — uses DOMParser). */

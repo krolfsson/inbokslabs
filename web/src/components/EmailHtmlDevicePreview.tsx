@@ -13,6 +13,7 @@ import { toPng } from "html-to-image";
 import {
   normalizeEmailHtmlInput,
   parseEmailForPreview,
+  readEmailFileAsText,
   resolveRelativeAssetUrls,
   stripDangerousCss,
 } from "@/lib/emailHtmlUtils";
@@ -91,6 +92,19 @@ const PURIFY_BODY = {
     "src",
   ],
 };
+
+function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIdx = 0;
+  while (value >= 1024 && unitIdx < units.length - 1) {
+    value /= 1024;
+    unitIdx++;
+  }
+  const decimals = value >= 100 || unitIdx === 0 ? 0 : 1;
+  return `${value.toFixed(decimals)} ${units[unitIdx]}`;
+}
 
 function inlineStyleToObject(css: string | undefined): CSSProperties | undefined {
   if (!css?.trim()) return undefined;
@@ -479,6 +493,11 @@ export function EmailHtmlDevicePreview({
   const [preview, setPreview] = useState<PreviewPayload | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [importNotice, setImportNotice] = useState<{
+    tone: "info" | "error";
+    text: string;
+  } | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const captureRootRef = useRef<HTMLDivElement>(null);
   const frameScreenRef = useRef<HTMLDivElement>(null);
@@ -852,28 +871,96 @@ export function EmailHtmlDevicePreview({
     setPreviewWidthDraft(String(clamped));
   };
 
+  const importEmailFile = useCallback(async (file: File) => {
+    setImportNotice(null);
+    try {
+      const result = await readEmailFileAsText(file);
+      if (result.kind === "msg-binary") {
+        setImportNotice({
+          tone: "error",
+          text: "Filen är .msg (Outlooks binärformat). Öppna mejlet i Outlook och välj Arkiv → Spara som → .eml, eller använd Vidarebefordra som bilaga och spara den. Du kan också spara som HTML.",
+        });
+        return;
+      }
+      if (result.kind === "unsupported") {
+        setImportNotice({
+          tone: "error",
+          text: "Filen verkar vara tom eller i ett format vi inte kan tolka.",
+        });
+        return;
+      }
+      setRawHtml(result.text);
+      setImportNotice({
+        tone: "info",
+        text: `Importerade ${file.name} (${file.type || "okänd typ"}, ${formatFileSize(file.size)}).`,
+      });
+    } catch (err) {
+      setImportNotice({
+        tone: "error",
+        text:
+          err instanceof Error
+            ? `Kunde inte läsa filen: ${err.message}`
+            : "Kunde inte läsa filen.",
+      });
+    }
+  }, []);
+
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const t = reader.result;
-      if (typeof t === "string") setRawHtml(t);
-    };
-    reader.readAsText(file);
+    if (file) void importEmailFile(file);
     e.target.value = "";
   };
+
+  const onDropFile = useCallback(
+    (e: React.DragEvent<HTMLElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+      const file = e.dataTransfer.files?.[0];
+      if (file) void importEmailFile(file);
+    },
+    [importEmailFile],
+  );
+
+  const onDragOverFile = useCallback((e: React.DragEvent<HTMLElement>) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const onDragLeaveFile = useCallback((e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const onPasteIntoTextarea = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const file = e.clipboardData.files?.[0];
+      if (file) {
+        e.preventDefault();
+        void importEmailFile(file);
+      }
+    },
+    [importEmailFile],
+  );
 
   return (
     <section className={embedded ? "" : "mt-12"}>
       <div className="grid gap-8 lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-10">
-        <div className="rounded-[30px] border border-brand/10 bg-brand-tint/55 p-5 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.06)]">
+        <div
+          className="rounded-[30px] border border-brand/10 bg-brand-tint/55 p-5 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.06)]"
+          onDragOver={onDragOverFile}
+          onDragLeave={onDragLeaveFile}
+          onDrop={onDropFile}
+        >
           <div className="mb-6">
             <h2 className="text-2xl font-semibold tracking-[-0.035em] text-brand">
               E-postförhandsvisning
             </h2>
             <p className="mt-1 text-sm text-zinc-600">
-              Klistra in HTML eller ett rått e-postmeddelande (t.ex. .eml-källa).
+              Dra in .eml/.html, ladda upp eller klistra in källan. Gmail, Outlook (klassisk + nya), Apple Mail, Thunderbird m.fl. tolkas automatiskt.
             </p>
             <div className="mt-4">
               <DataHandlingNote variant="email-html" />
@@ -881,18 +968,54 @@ export function EmailHtmlDevicePreview({
           </div>
 
           <div className="space-y-4">
-            <label className="block space-y-2">
-              <span className="text-xs font-medium text-brand-deep/85">
-                E-post
+            <label
+              className="block space-y-2"
+              onDragOver={onDragOverFile}
+              onDragLeave={onDragLeaveFile}
+              onDrop={onDropFile}
+            >
+              <span className="flex items-center justify-between text-xs font-medium text-brand-deep/85">
+                <span>E-post</span>
+                <span className="font-normal text-[11px] text-zinc-400">
+                  Dra in .eml eller .html — eller pasta källan
+                </span>
               </span>
-              <textarea
-                value={rawHtml}
-                onChange={(e) => setRawHtml(e.target.value)}
-                spellCheck={false}
-                className="textarea-email-html h-[min(430px,54vh)] w-full resize-none rounded-2xl border border-brand/10 bg-white/90 px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-brand/35 focus:bg-white focus:shadow-[0_0_0_4px_rgba(79,70,229,0.10)]"
-                placeholder="Klistra in HTML eller källtext från .eml…"
-              />
+              <div className="relative">
+                <textarea
+                  value={rawHtml}
+                  onChange={(e) => setRawHtml(e.target.value)}
+                  onPaste={onPasteIntoTextarea}
+                  spellCheck={false}
+                  className={`textarea-email-html h-[min(430px,54vh)] w-full resize-none rounded-2xl border bg-white/90 px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:bg-white ${
+                    isDragOver
+                      ? "border-brand/60 shadow-[0_0_0_4px_rgba(79,70,229,0.18)]"
+                      : "border-brand/10 focus:border-brand/35 focus:shadow-[0_0_0_4px_rgba(79,70,229,0.10)]"
+                  }`}
+                  placeholder="Klistra in HTML eller källtext från .eml…"
+                />
+                {isDragOver ? (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-brand/8 text-sm font-semibold text-brand-deep"
+                  >
+                    Släpp filen här
+                  </div>
+                ) : null}
+              </div>
             </label>
+
+            {importNotice ? (
+              <div
+                className={`rounded-2xl border px-4 py-3 text-[12px] leading-relaxed ${
+                  importNotice.tone === "error"
+                    ? "border-rose-200 bg-rose-50 text-rose-700"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                }`}
+                role={importNotice.tone === "error" ? "alert" : undefined}
+              >
+                {importNotice.text}
+              </div>
+            ) : null}
 
             <label className="block space-y-2">
               <span className="text-xs font-medium text-brand-deep/85">

@@ -8,3 +8,5 @@ dist
 .DS_Store
 *.log
 /services/render/render
+# Workspaces share a single lockfile at the repo root; ignore stray child lockfiles.
+web/package-lock.json
