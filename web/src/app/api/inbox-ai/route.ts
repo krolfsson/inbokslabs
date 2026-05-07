@@ -1,11 +1,19 @@
 import { openai } from "@ai-sdk/openai";
-import { streamText } from "ai";
+import { generateText } from "ai";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MODEL = process.env.INBOX_AI_MODEL ?? "gpt-4o-mini";
 
+/**
+ * The route returns a single JSON payload (not a stream).
+ *
+ * Streaming is brittle through corporate proxies (Forcepoint, Zscaler, etc.) that
+ * buffer text/event-stream responses. Some users saw "Ansluter till modellen…"
+ * forever while the chunks were held by the proxy. JSON arrives in one shot and
+ * works reliably; the client simulates progressive reveal for UX.
+ */
 export async function POST(request: Request) {
   if (!process.env.OPENAI_API_KEY?.trim()) {
     return Response.json(
@@ -34,9 +42,11 @@ export async function POST(request: Request) {
   const subject = String(o.subject ?? "").trim().slice(0, 400);
   const preheader = String(o.preheader ?? "").trim().slice(0, 600);
 
-  const result = streamText({
-    model: openai(MODEL),
-    system: `Du är en senior e-postmarknadsförare med fokus på svenska mottagare (B2B och B2C), GDPR, svensk marknadsföringspraxis och typiska beteenden i Apple Mail, Gmail och Android-klienter.
+  try {
+    const { text } = await generateText({
+      model: openai(MODEL),
+      abortSignal: request.signal,
+      system: `Du är en senior e-postmarknadsförare med fokus på svenska mottagare (B2B och B2C), GDPR, svensk marknadsföringspraxis och typiska beteenden i Apple Mail, Gmail och Android-klienter.
 
 Din uppgift: bedöm hur stark *öppningspotentialen* är för kombinationen rubrik + ingress (preheader), givet avsändarens visningsnamn — endast vad som visas i inkorgslistan. Bedöm inte brödtext eller knappar i själva e-post-layouten.
 
@@ -53,18 +63,38 @@ VIKTIGT — copy (ämnesrad/ingress):
 
 4. Gissa inte ett exakt mätvärde från verkliga utskick — det här är en professionell bedömning, inte ett CRM-mått.
 5. Håll dig till innehållet ovan; ingen inledning som "här kommer analys".`,
-    prompt: `Avsändare (visningsnamn): ${sender || "(tom)"}
+      prompt: `Avsändare (visningsnamn): ${sender || "(tom)"}
 
 Rubrik:
 ${subject || "(tom)"}
 
 Ingress (preheader):
 ${preheader || "(tom)"}`,
-  });
+    });
 
-  return result.toTextStreamResponse({
-    headers: {
-      "Cache-Control": "no-store",
-    },
-  });
+    return Response.json(
+      { text },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+          /* Hint to proxies/CDNs that this should not be cached. */
+          "CDN-Cache-Control": "no-store",
+        },
+      },
+    );
+  } catch (err) {
+    const aborted =
+      err instanceof Error && err.name === "AbortError" ? true : false;
+    if (aborted) {
+      return new Response(null, { status: 499 });
+    }
+    return Response.json(
+      {
+        error: "AI_ERROR",
+        message:
+          err instanceof Error ? err.message : "Misslyckades hämta AI-analys.",
+      },
+      { status: 502 },
+    );
+  }
 }

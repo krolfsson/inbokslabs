@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import type { CSSProperties } from "react";
-import { toPng } from "html-to-image";
+import { toBlob, toPng } from "html-to-image";
 import {
   normalizeEmailHtmlInput,
   parseEmailForPreview,
@@ -19,6 +19,7 @@ import {
 } from "@/lib/emailHtmlUtils";
 import { DataHandlingNote } from "@/components/DataHandlingNote";
 import { SLIDE_MS, SLIDE_TIMING_CSS } from "@/components/SlidingSegment";
+import { useTypewriterReveal } from "@/lib/useTypewriterReveal";
 
 const WIDTH_CHIP_PRESETS = [600, 640, 700, 800] as const;
 
@@ -272,6 +273,10 @@ export const DEFAULT_EMAIL_PREVIEW_HTML = `<table role="presentation" width="100
 </table>`;
 
 const CTA_AI_DEBOUNCE_MS = 680;
+/** Hard ceiling on the AI request so corporate proxies don't keep us hanging. */
+const CTA_AI_TIMEOUT_MS = 60_000;
+/** Debounce before regenerating the right-click-ready PNG when content changes. */
+const PREVIEW_IMAGE_DEBOUNCE_MS = 1_400;
 
 function collapseWs(s: string): string {
   return s.replace(/\s+/g, " ").trim();
@@ -478,8 +483,8 @@ export function EmailHtmlDevicePreview({
 } = {}) {
   const [rawHtml, setRawHtml] = useState(DEFAULT_EMAIL_PREVIEW_HTML);
 
-  const [ctaText, setCtaText] = useState("");
-  const [ctaBusy, setCtaBusy] = useState(false);
+  const [ctaFullText, setCtaFullText] = useState<string | null>(null);
+  const [ctaNetworkBusy, setCtaNetworkBusy] = useState(false);
   const [ctaErr, setCtaErr] = useState<string | null>(null);
   const [ctaNoKey, setCtaNoKey] = useState(false);
 
@@ -498,6 +503,11 @@ export function EmailHtmlDevicePreview({
     text: string;
   } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [previewMode, setPreviewMode] = useState<"live" | "image">("live");
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewImageBusy, setPreviewImageBusy] = useState(false);
+  const [previewImageError, setPreviewImageError] = useState<string | null>(null);
+  const previewImageUrlRef = useRef<string | null>(null);
 
   const captureRootRef = useRef<HTMLDivElement>(null);
   const frameScreenRef = useRef<HTMLDivElement>(null);
@@ -655,63 +665,218 @@ export function EmailHtmlDevicePreview({
     return { host, clone };
   };
 
-  const savePng = useCallback(async () => {
-    const root = captureRootRef.current;
-    const inner = emailInnerRef.current;
-    if (!root || !inner || !hasContent) return;
+  /**
+   * Rasterizes the live preview into a `Blob`. Uses `toBlob` (rather than `toPng`
+   * + manual `<a download>` of a data: URL) because corporate networks frequently
+   * block `<a>` clicks targeting very large data: URLs, while blob: URLs and
+   * `<img src=blob:…>` are treated like normal in-page resources and work even
+   * with strict CSPs.
+   */
+  const generatePreviewBlob = useCallback(
+    async (pixelRatio: number): Promise<Blob> => {
+      const root = captureRootRef.current;
+      const inner = emailInnerRef.current;
+      if (!root || !inner) {
+        throw new Error("Förhandsvisningen är inte redo ännu.");
+      }
+      if (!hasContent) {
+        throw new Error("Det finns inget innehåll att rastera ännu.");
+      }
 
+      let exportHost: HTMLDivElement | null = null;
+      try {
+        await flushLayout();
+        await waitForImages(inner);
+        if (typeof document !== "undefined" && document.fonts?.ready) {
+          try {
+            await document.fonts.ready;
+          } catch {
+            /* ignore */
+          }
+        }
+        await flushLayout();
+
+        const { host, clone } = createExportClone(root);
+        exportHost = host;
+
+        await flushLayout();
+        await waitForImages(clone);
+        await flushLayout();
+
+        const exportWidth = Math.max(clone.scrollWidth, clone.offsetWidth);
+        const exportHeight = Math.max(clone.scrollHeight, clone.offsetHeight);
+
+        const blob = await toBlob(clone, {
+          ...HTML_TO_IMAGE_FETCH,
+          pixelRatio,
+          width: exportWidth,
+          height: exportHeight,
+          backgroundColor: "#ffffff",
+          style: {
+            margin: "0",
+            transform: "none",
+          },
+        });
+        if (!blob) {
+          throw new Error("Bilden kunde inte skapas (toBlob returnerade null).");
+        }
+        return blob;
+      } finally {
+        exportHost?.remove();
+      }
+    },
+    [hasContent],
+  );
+
+  /**
+   * Replace the cached preview blob URL. The previous URL is revoked on a small
+   * delay so the `<img>` can swap to the new src without flicker; once the
+   * browser has decoded the new resource, holding on to the old one a few
+   * hundred ms is harmless.
+   */
+  const setPreviewImageUrlSafe = useCallback((url: string | null) => {
+    const prev = previewImageUrlRef.current;
+    previewImageUrlRef.current = url;
+    setPreviewImageUrl(url);
+    if (prev && prev !== url) {
+      window.setTimeout(() => URL.revokeObjectURL(prev), 1500);
+    }
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (previewImageUrlRef.current) {
+        URL.revokeObjectURL(previewImageUrlRef.current);
+        previewImageUrlRef.current = null;
+      }
+    },
+    [],
+  );
+
+  /**
+   * Try downloading via `<a download>`; if the corporate browser blocks it
+   * (some CSPs/AV reject programmatic clicks on blob URLs), fall back to opening
+   * the blob in a new tab so the user can use the browser's native save UI.
+   */
+  const triggerBlobDownload = useCallback(
+    (blobUrl: string, filename: string): { ok: boolean; opened: boolean } => {
+      try {
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        a.rel = "noopener";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        return { ok: true, opened: false };
+      } catch {
+        const w = window.open(blobUrl, "_blank", "noopener");
+        return { ok: w != null, opened: w != null };
+      }
+    },
+    [],
+  );
+
+  const savePng = useCallback(async () => {
+    if (!hasContent) return;
     setExporting(true);
     setExportError(null);
-
-    let exportHost: HTMLDivElement | null = null;
-
     try {
-      await flushLayout();
-      await waitForImages(inner);
-      if (typeof document !== "undefined" && document.fonts?.ready) {
-        try {
-          await document.fonts.ready;
-        } catch {
-          /* ignore */
+      const blob = await generatePreviewBlob(EXPORT_SCALE);
+      const url = URL.createObjectURL(blob);
+      const filename = `inbokslabs-epost-${Date.now()}.png`;
+      const result = triggerBlobDownload(url, filename);
+      if (!result.ok) {
+        const w = window.open(url, "_blank", "noopener");
+        if (!w) {
+          setExportError(
+            "Webbläsaren tillät varken nedladdning eller ny flik. Växla till bildläge nedan och högerklicka på bilden istället.",
+          );
         }
       }
-      await flushLayout();
-
-      const { host, clone } = createExportClone(root);
-      exportHost = host;
-
-      await flushLayout();
-      await waitForImages(clone);
-      await flushLayout();
-
-      const exportWidth = Math.max(clone.scrollWidth, clone.offsetWidth);
-      const exportHeight = Math.max(clone.scrollHeight, clone.offsetHeight);
-
-      const dataUrl = await toPng(clone, {
-        ...HTML_TO_IMAGE_FETCH,
-        pixelRatio: EXPORT_SCALE,
-        width: exportWidth,
-        height: exportHeight,
-        backgroundColor: "#ffffff",
-        style: {
-          margin: "0",
-          transform: "none",
-        },
-      });
-
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `inbokslabs-epost-${Date.now()}.png`;
-      a.click();
+      /* Keep the URL alive long enough for the new tab / download to settle. */
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e) {
-      const msg =
-        e instanceof Error ? e.message : "PNG-export misslyckades.";
-      setExportError(msg);
+      setExportError(
+        e instanceof Error ? e.message : "PNG-export misslyckades.",
+      );
     } finally {
-      exportHost?.remove();
       setExporting(false);
     }
-  }, [hasContent]);
+  }, [generatePreviewBlob, hasContent, triggerBlobDownload]);
+
+  const openPreviewInNewTab = useCallback(async () => {
+    setExportError(null);
+    try {
+      let url = previewImageUrl;
+      if (!url) {
+        const blob = await generatePreviewBlob(EXPORT_SCALE);
+        url = URL.createObjectURL(blob);
+        setPreviewImageUrlSafe(url);
+      }
+      const w = window.open(url, "_blank", "noopener");
+      if (!w) {
+        setExportError(
+          "Popup-fönstret blockerades av webbläsaren. Tillåt popup eller högerklicka på bildläget nedan.",
+        );
+      }
+    } catch (e) {
+      setExportError(
+        e instanceof Error ? e.message : "Kunde inte öppna förhandsvisningen.",
+      );
+    }
+  }, [generatePreviewBlob, previewImageUrl, setPreviewImageUrlSafe]);
+
+  /**
+   * Keep the right-click-ready image fresh while the user edits in image mode.
+   * Generation is debounced and re-triggered only when the source materially
+   * changes (HTML, width, asset base URL, or once on entering image mode).
+   */
+  useEffect(() => {
+    if (previewMode !== "image" || !hasContent) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setPreviewImageBusy(true);
+        setPreviewImageError(null);
+        try {
+          const blob = await generatePreviewBlob(EXPORT_SCALE);
+          if (cancelled) return;
+          setPreviewImageUrlSafe(URL.createObjectURL(blob));
+        } catch (e) {
+          if (cancelled) return;
+          setPreviewImageError(
+            e instanceof Error
+              ? `Kunde inte skapa bild: ${e.message}`
+              : "Kunde inte skapa bild.",
+          );
+        } finally {
+          if (!cancelled) setPreviewImageBusy(false);
+        }
+      })();
+    }, PREVIEW_IMAGE_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    previewMode,
+    hasContent,
+    rawHtml,
+    previewWidth,
+    assetBaseUrl,
+    preview,
+    generatePreviewBlob,
+    setPreviewImageUrlSafe,
+  ]);
+
+  /** Drop the cached image when content disappears (e.g. user clears textarea). */
+  useEffect(() => {
+    if (!hasContent && previewImageUrl) setPreviewImageUrlSafe(null);
+  }, [hasContent, previewImageUrl, setPreviewImageUrlSafe]);
 
   const capturePreviewForVisionAi = useCallback(async (): Promise<string | null> => {
     const root = captureRootRef.current;
@@ -761,20 +926,24 @@ export function EmailHtmlDevicePreview({
 
   useEffect(() => {
     const ac = new AbortController();
-    const timer = window.setTimeout(() => {
+    const timeoutId = window.setTimeout(
+      () => ac.abort(new Error("TIMEOUT")),
+      CTA_AI_TIMEOUT_MS,
+    );
+    const debounceTimer = window.setTimeout(() => {
       if (!ctaAiPayload) {
-        setCtaText("");
+        setCtaFullText(null);
         setCtaErr(null);
-        setCtaBusy(false);
+        setCtaNetworkBusy(false);
         setCtaNoKey(false);
         return;
       }
 
       void (async () => {
-        setCtaBusy(true);
+        setCtaNetworkBusy(true);
         setCtaErr(null);
         setCtaNoKey(false);
-        setCtaText("");
+        setCtaFullText(null);
         try {
           let screenshotDataUrl: string | null = null;
           if (hasContent) {
@@ -823,25 +992,27 @@ export function EmailHtmlDevicePreview({
           }
 
           if (!res.ok) {
-            setCtaErr("Kunde inte hämta CTA‑analys.");
+            setCtaErr(
+              res.status >= 500
+                ? "Servern svarade med ett fel — försök igen om en stund."
+                : "Kunde inte hämta CTA‑analys.",
+            );
             return;
           }
 
-          const reader = res.body?.getReader();
-          if (!reader) {
-            setCtaErr("Saknar svar från servern.");
-            return;
-          }
-
-          const dec = new TextDecoder();
-          while (!ac.signal.aborted) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = dec.decode(value, { stream: true });
-            if (chunk) setCtaText((prev) => prev + chunk);
-          }
-        } catch (e) {
+          const json = (await res.json()) as { text?: string };
           if (ac.signal.aborted) return;
+          setCtaFullText(typeof json.text === "string" ? json.text : "");
+        } catch (e) {
+          if (ac.signal.aborted) {
+            const reason = ac.signal.reason;
+            if (reason instanceof Error && reason.message === "TIMEOUT") {
+              setCtaErr(
+                "AI-anropet tog för lång tid (kan bero på proxy/brandvägg). Försök igen om en stund.",
+              );
+            }
+            return;
+          }
           const name =
             e && typeof e === "object" && "name" in e
               ? String((e as Error).name)
@@ -849,16 +1020,25 @@ export function EmailHtmlDevicePreview({
           if (name === "AbortError") return;
           setCtaErr(e instanceof Error ? e.message : "Något gick fel.");
         } finally {
-          if (!ac.signal.aborted) setCtaBusy(false);
+          window.clearTimeout(timeoutId);
+          if (!ac.signal.aborted) setCtaNetworkBusy(false);
         }
       })();
     }, CTA_AI_DEBOUNCE_MS);
 
     return () => {
-      window.clearTimeout(timer);
+      window.clearTimeout(debounceTimer);
+      window.clearTimeout(timeoutId);
       ac.abort();
     };
   }, [ctaAiPayload, hasContent, capturePreviewForVisionAi]);
+
+  const { revealed: ctaText, complete: ctaRevealComplete } =
+    useTypewriterReveal(ctaFullText);
+
+  /* Busy if network call still in flight or typewriter still revealing. */
+  const ctaBusy =
+    ctaNetworkBusy || (ctaFullText !== null && !ctaRevealComplete);
 
   const commitPreviewWidth = () => {
     const n = Number.parseInt(previewWidthDraft.trim(), 10);
@@ -1048,12 +1228,26 @@ export function EmailHtmlDevicePreview({
               >
                 {exporting ? "Sparar…" : "Spara PNG"}
               </button>
+              <button
+                type="button"
+                disabled={!hasContent || exporting}
+                onClick={() => void openPreviewInNewTab()}
+                className="inline-flex h-11 items-center justify-center rounded-full border border-brand/25 bg-white px-5 text-sm font-semibold text-brand-deep shadow-sm transition hover:border-brand/45 hover:bg-brand-tint/40 disabled:cursor-not-allowed disabled:opacity-40"
+                title="Öppnar bilden i ny flik så att du kan spara via webbläsarens vanliga meny — användbart om Spara PNG blockeras av jobbets brandvägg."
+              >
+                Öppna i ny flik
+              </button>
             </div>
             {exportError ? (
               <p className="text-sm text-red-600" role="alert">
                 {exportError}
               </p>
             ) : null}
+            <p className="text-[11px] leading-snug text-zinc-500">
+              Funkar inte nedladdning på jobbet? Växla till{" "}
+              <span className="font-medium text-brand-deep">Bild</span> i förhandsvisningen
+              och högerklicka — eller använd <span className="font-medium text-brand-deep">Öppna i ny flik</span>.
+            </p>
 
             <div
               className="rounded-2xl border border-brand/15 bg-white/90 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]"
@@ -1126,6 +1320,40 @@ export function EmailHtmlDevicePreview({
               Förhandsvisning
             </span>
             <div className="flex flex-wrap items-center gap-2">
+              <div
+                role="tablist"
+                aria-label="Visningsläge"
+                className="inline-flex rounded-full bg-brand-tint/50 p-1"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={previewMode === "live"}
+                  onClick={() => setPreviewMode("live")}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-colors duration-300 ${
+                    previewMode === "live"
+                      ? "bg-brand text-white shadow-sm"
+                      : "text-zinc-700 hover:text-brand-deep"
+                  }`}
+                >
+                  Live
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={previewMode === "image"}
+                  onClick={() => setPreviewMode("image")}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-colors duration-300 ${
+                    previewMode === "image"
+                      ? "bg-brand text-white shadow-sm"
+                      : "text-zinc-700 hover:text-brand-deep"
+                  }`}
+                  title="Renderar förhandsvisningen som en högerklick‑sparbar bild — fungerar även där PNG‑knappen blockeras av brandvägg."
+                >
+                  Bild
+                </button>
+              </div>
+              <div className="hidden h-4 w-px bg-brand/15 sm:block" aria-hidden />
               <label className="flex items-center gap-2 text-xs text-zinc-600">
                 <span className="font-medium">Bredd</span>
                 <input
@@ -1184,43 +1412,106 @@ export function EmailHtmlDevicePreview({
               </div>
             </div>
           </div>
-          <div className="flex justify-center overflow-x-auto p-2">
-            <div ref={captureRootRef} data-lith="frame" style={FRAME_OUTER}>
-              <div ref={frameScreenRef} data-lith="screen" style={FRAME_SCREEN}>
-                <div
-                  ref={emailInnerRef}
-                  data-lith="scroll"
-                  data-email-root
-                  style={frameScrollStyle}
-                >
-                  {preview?.styleTexts.map((css, i) => (
-                    <style key={i} dangerouslySetInnerHTML={{ __html: css }} />
-                  ))}
-                  <style
-                    dangerouslySetInnerHTML={{
-                      __html: stripDangerousCss(EMAIL_PREVIEW_OVERRIDE_CSS),
-                    }}
-                  />
+          <div className="flex flex-col items-center gap-3 overflow-x-auto p-2">
+            <div className="relative">
+              <div ref={captureRootRef} data-lith="frame" style={FRAME_OUTER}>
+                <div ref={frameScreenRef} data-lith="screen" style={FRAME_SCREEN}>
                   <div
-                    className={
-                      preview?.bodyClass
-                        ? `email-preview-body ${preview.bodyClass}`
-                        : "email-preview-body"
-                    }
-                    style={{
-                      width: "100%",
-                      minHeight: "100%",
-                      ...bodyStyleObj,
-                    }}
-                    dangerouslySetInnerHTML={
-                      hasContent && preview
-                        ? { __html: preview.bodyHtml }
-                        : { __html: "" }
-                    }
-                  />
+                    ref={emailInnerRef}
+                    data-lith="scroll"
+                    data-email-root
+                    style={frameScrollStyle}
+                  >
+                    {preview?.styleTexts.map((css, i) => (
+                      <style key={i} dangerouslySetInnerHTML={{ __html: css }} />
+                    ))}
+                    <style
+                      dangerouslySetInnerHTML={{
+                        __html: stripDangerousCss(EMAIL_PREVIEW_OVERRIDE_CSS),
+                      }}
+                    />
+                    <div
+                      className={
+                        preview?.bodyClass
+                          ? `email-preview-body ${preview.bodyClass}`
+                          : "email-preview-body"
+                      }
+                      style={{
+                        width: "100%",
+                        minHeight: "100%",
+                        ...bodyStyleObj,
+                      }}
+                      dangerouslySetInnerHTML={
+                        hasContent && preview
+                          ? { __html: preview.bodyHtml }
+                          : { __html: "" }
+                      }
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* In Bild mode, paint the rendered PNG over the live DOM. The live
+                  preview stays mounted with full layout so toBlob can clone it. */}
+              {previewMode === "image" ? (
+                <div
+                  className="pointer-events-auto absolute inset-0 flex items-stretch justify-center overflow-hidden rounded-[28px] bg-white"
+                  aria-live="polite"
+                >
+                  {previewImageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={previewImageUrl}
+                      alt="Förhandsvisning av e-posten — högerklicka för att spara som bild."
+                      draggable
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        height: "auto",
+                        userSelect: "none",
+                      }}
+                    />
+                  ) : (
+                    <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
+                      {previewImageBusy
+                        ? "Genererar bild…"
+                        : !hasContent
+                          ? "Klistra in eller dra in mejlet för att skapa bilden."
+                          : previewImageError ?? "Förbereder bild…"}
+                    </div>
+                  )}
+
+                  {previewImageBusy && previewImageUrl ? (
+                    <div
+                      className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-medium text-brand-deep shadow"
+                      aria-hidden
+                    >
+                      <span className="size-1.5 animate-pulse rounded-full bg-brand" />
+                      Uppdaterar bild
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
+
+            {previewMode === "image" ? (
+              <p className="max-w-md text-center text-[11px] leading-snug text-zinc-500">
+                Bilden uppdateras automatiskt när du ändrar innehållet.{" "}
+                <span className="font-medium text-brand-deep">
+                  Högerklicka och välj &ldquo;Spara bild som…&rdquo;
+                </span>{" "}
+                — eller dra bilden direkt till skrivbordet eller en chatt.
+              </p>
+            ) : null}
+
+            {previewMode === "image" && previewImageError ? (
+              <p
+                className="max-w-md rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-center text-[12px] text-rose-700"
+                role="alert"
+              >
+                {previewImageError}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

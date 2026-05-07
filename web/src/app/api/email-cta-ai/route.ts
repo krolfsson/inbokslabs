@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import { streamText } from "ai";
+import { generateText } from "ai";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -11,6 +11,10 @@ const EMAIL_HTML_MAX = 24_000;
 /** Övre gräns för base64‑data‑URL (~6 MB raw sträng — under Vercel praktiska gränser). */
 const SCREENSHOT_BODY_MAX_CHARS = 6_800_000;
 
+/**
+ * Returns a single JSON payload (not a stream) so the route survives corporate
+ * proxies that buffer streaming text. The client simulates progressive reveal.
+ */
 export async function POST(request: Request) {
   if (!process.env.OPENAI_API_KEY?.trim()) {
     return Response.json(
@@ -91,9 +95,11 @@ ${cappedHtml}
     });
   }
 
-  const result = streamText({
-    model: openai(VISION_MODEL),
-    system: `Du granskar kampanj‑e-post för svensk eller nordisk mottagar­kontext (B2B/B2C).
+  try {
+    const { text } = await generateText({
+      model: openai(VISION_MODEL),
+      abortSignal: request.signal,
+      system: `Du granskar kampanj‑e-post för svensk eller nordisk mottagar­kontext (B2B/B2C).
 
 **Primärt mål:** bedöm och resonera kring CTA‑**copy** — det som läses på själva klickytan: knapptext, länktext, synlig etikett, eller (om det är bild‑CTA) den text som i praktiken levereras via \`alt\`/\`title\` i HTML om den bidrar till hur knappen uppfattas.
 
@@ -128,12 +134,31 @@ Om \`href\` ger tydlig ledtråd till destination: kort mål i parentes om det hj
 Undvik dominans av ”visuellt sticker ut/kontrast” om det inte knyts till hur texten läses.
 
 4. Ersätter inte juridisk rådgivning.`,
-    messages: [{ role: "user", content: userContent }],
-  });
+      messages: [{ role: "user", content: userContent }],
+    });
 
-  return result.toTextStreamResponse({
-    headers: {
-      "Cache-Control": "no-store",
-    },
-  });
+    return Response.json(
+      { text },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+          "CDN-Cache-Control": "no-store",
+        },
+      },
+    );
+  } catch (err) {
+    const aborted =
+      err instanceof Error && err.name === "AbortError" ? true : false;
+    if (aborted) {
+      return new Response(null, { status: 499 });
+    }
+    return Response.json(
+      {
+        error: "AI_ERROR",
+        message:
+          err instanceof Error ? err.message : "Misslyckades hämta AI-analys.",
+      },
+      { status: 502 },
+    );
+  }
 }

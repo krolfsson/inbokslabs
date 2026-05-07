@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { computeSwedishOpenPotential } from "@/lib/swedishInboxOpenScore";
 import { bandFromPercent, parseInboxAiPoang } from "@/lib/parseInboxAiPoang";
+import { useTypewriterReveal } from "@/lib/useTypewriterReveal";
 
 const DEBOUNCE_MS = 620;
+/** Hard ceiling so the request never hangs forever behind a corporate proxy. */
+const REQUEST_TIMEOUT_MS = 45_000;
 
 const bandStyles: Record<
   ReturnType<typeof bandFromPercent>,
@@ -39,19 +42,20 @@ export function OpenPotentialMeter({ sender, subject, preheader }: Props) {
     [sender, subject, preheader],
   );
 
-  const [aiRaw, setAiRaw] = useState("");
+  const [aiFullText, setAiFullText] = useState<string | null>(null);
   const [aiNoKey, setAiNoKey] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [aiBusy, setAiBusy] = useState(false);
+  const [networkBusy, setNetworkBusy] = useState(false);
 
   useEffect(() => {
     const ac = new AbortController();
-    const timer = setTimeout(() => {
+    const timeoutId = setTimeout(() => ac.abort(new Error("TIMEOUT")), REQUEST_TIMEOUT_MS);
+    const debounceTimer = setTimeout(() => {
       void (async () => {
-        setAiBusy(true);
+        setNetworkBusy(true);
         setAiError(null);
         setAiNoKey(false);
-        setAiRaw("");
+        setAiFullText(null);
         try {
           const res = await fetch("/api/inbox-ai", {
             method: "POST",
@@ -77,25 +81,27 @@ export function OpenPotentialMeter({ sender, subject, preheader }: Props) {
           }
 
           if (!res.ok) {
-            setAiError("Kunde inte hämta AI-analys.");
+            setAiError(
+              res.status >= 500
+                ? "Servern svarade med ett fel — försök igen om en stund."
+                : "Kunde inte hämta AI-analys.",
+            );
             return;
           }
 
-          const reader = res.body?.getReader();
-          if (!reader) {
-            setAiError("Saknar svarström från servern.");
-            return;
-          }
-
-          const dec = new TextDecoder();
-          while (!ac.signal.aborted) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = dec.decode(value, { stream: true });
-            if (chunk) setAiRaw((prev) => prev + chunk);
-          }
-        } catch (e) {
+          const json = (await res.json()) as { text?: string };
           if (ac.signal.aborted) return;
+          setAiFullText(typeof json.text === "string" ? json.text : "");
+        } catch (e) {
+          if (ac.signal.aborted) {
+            const reason = ac.signal.reason;
+            if (reason instanceof Error && reason.message === "TIMEOUT") {
+              setAiError(
+                "AI-anropet tog för lång tid (kan bero på proxy/brandvägg). Försök igen, eller arbeta vidare med regelmodellen nedan.",
+              );
+            }
+            return;
+          }
           const name =
             e && typeof e === "object" && "name" in e
               ? String((e as Error).name)
@@ -103,16 +109,25 @@ export function OpenPotentialMeter({ sender, subject, preheader }: Props) {
           if (name === "AbortError") return;
           setAiError(e instanceof Error ? e.message : "Något gick fel.");
         } finally {
-          if (!ac.signal.aborted) setAiBusy(false);
+          clearTimeout(timeoutId);
+          if (!ac.signal.aborted) setNetworkBusy(false);
         }
       })();
     }, DEBOUNCE_MS);
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(debounceTimer);
+      clearTimeout(timeoutId);
       ac.abort();
     };
   }, [sender, subject, preheader]);
+
+  const { revealed: aiRaw, complete: revealComplete } = useTypewriterReveal(
+    aiFullText,
+  );
+
+  /* Busy = waiting on network OR mid-reveal of an arrived response. */
+  const aiBusy = networkBusy || (aiFullText !== null && !revealComplete);
 
   const parsed = useMemo(() => parseInboxAiPoang(aiRaw), [aiRaw]);
   const displayScore = parsed.score ?? heuristic.percent;
